@@ -1,16 +1,76 @@
-# React + Vite
+# HostelOLX
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+HostelOLX is a campus marketplace web app designed for students to buy, sell, exchange, and claim items within their hostel and campus community. It is built as a React + Vite frontend prototype with mock data and a modern student-focused UI.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+This project simulates a campus commerce platform where students can:
 
-## React Compiler
+- Browse products listed by other students
+- Search and filter items by hostel
+- Save items in a wishlist
+- Start chats with sellers
+- Post new items for sale or giveaway
+- Claim lost-found items
+- Explore safe handover spots on campus
+- Manage their student profile and room details
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+This app is designed around hostel life, quick transactions, safety, and easy peer-to-peer exchanges.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Tech Stack
+
+- Frontend: React
+- Build Tool: Vite
+- Language: JavaScript
+- Styling: Custom CSS / component-based design
+- State: React useState and useMemo
+- Data: Mock in-memory data
+
+---
+
+## Project Structure
+
+```bash
+hostelOLX/
+├── frontend/
+│   ├── public/
+│   │   └── images/
+│   ├── src/
+│   │   ├── Components/
+│   │   │   ├── CampusFavorites.jsx
+│   │   │   ├── CampusPulse.jsx
+│   │   │   ├── ChatDrawer.jsx
+│   │   │   ├── ClaimModal.jsx
+│   │   │   ├── DormEssentials.jsx
+│   │   │   ├── EditorialBanner.jsx
+│   │   │   ├── Footer.jsx
+│   │   │   ├── HandoverSpotsModal.jsx
+│   │   │   ├── HeroSection.jsx
+│   │   │   ├── LoginModal.jsx
+│   │   │   ├── navbar.jsx
+│   │   │   ├── ProductDetailModal.jsx
+│   │   │   ├── productcard.jsx
+│   │   │   ├── productlist.jsx
+│   │   │   ├── ProfileModal.jsx
+│   │   │   ├── SellItemModal.jsx
+│   │   │   ├── SellItemPage.jsx
+│   │   │   ├── SpecialSections.jsx
+│   │   │   ├── Testimonials.jsx
+│   │   │   └── WishlistDrawer.jsx
+│   │   ├── data/
+│   │   │   └── mockData.js
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   └── README.md
+├── backend/
+├── DBMS-Google-Maps-Navigation/
+├── campus_marketplace_home.html
+├── moddoa_homepage.html
+└── README.md
