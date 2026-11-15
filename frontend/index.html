@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HostelOLX - Campus Marketplace</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#a30008",
+              "primary-container": "#c91f1b",
+              "on-primary": "#ffffff",
+              "primary-fixed": "#ffdad5",
+              "primary-fixed-dim": "#ffb4aa",
+              "on-primary-fixed": "#410001",
+              "on-primary-fixed-variant": "#930006",
+              "on-primary-container": "#ffdfda",
+              "secondary": "#9a442d",
+              "secondary-container": "#fc9174",
+              "secondary-fixed": "#ffdbd2",
+              "secondary-fixed-dim": "#ffb4a1",
+              "on-secondary": "#ffffff",
+              "on-secondary-fixed": "#3c0800",
+              "on-secondary-container": "#742814",
+              "background": "#fff8f1",
+              "surface": "#fff8f1",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-low": "#f9f3eb",
+              "surface-container": "#f4ede5",
+              "surface-container-high": "#eee7df",
+              "surface-container-highest": "#e8e1da",
+              "on-surface": "#1e1b17",
+              "on-surface-variant": "#5c403c",
+              "outline": "#906f6b",
+              "outline-variant": "#e5bdb8",
+              "tertiary": "#395261",
+              "tertiary-fixed": "#cce6f8",
+              "on-tertiary-fixed": "#021e2b",
+              "inverse-surface": "#33302b",
+            },
+            fontFamily: {
+              serif: ['"Playfair Display"', 'Georgia', 'serif'],
+              sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            },
+            borderRadius: {
+              DEFAULT: "1rem",
+              lg: "2rem",
+              xl: "3rem",
+              full: "9999px",
+            },
+            spacing: {
+              "space-xs": "0.25rem",
+              "space-sm": "0.5rem",
+              "space-md": "1rem",
+              "space-lg": "1.5rem",
+              "space-xl": "2.5rem",
+              "gutter-mobile": "0.75rem",
+              "gutter": "1.25rem",
+              "gutter-desktop": "1.75rem",
+              "margin-mobile": "1rem",
+              "margin": "1.5rem",
+              "margin-desktop": "3rem",
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .material-symbols-outlined.fill-icon {
+        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body class="bg-background font-sans text-on-surface selection:bg-primary-container selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
