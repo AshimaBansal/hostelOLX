@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const PRESET_IMAGES = [
   { label: 'Study Lamp', path: '/images/arc_lamp.png' },
@@ -28,20 +28,14 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
   const [description, setDescription] = useState('');
   const [selectedImage, setSelectedImage] = useState(PRESET_IMAGES[0].path);
 
-  useEffect(() => {
-    if (itemType === 'free' || itemType === 'lost-found') {
-      setIsFree(true);
-      setPrice('0');
-      setOriginalPrice('0');
-    }
-  }, [itemType]);
+  const isFreeForSubmission = itemType === 'free' || itemType === 'lost-found' || isFree;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const finalPrice = isFree ? 0 : Number(price) || 0;
-    const finalOrig = isFree ? 0 : Number(originalPrice) || finalPrice;
+    const finalPrice = isFreeForSubmission ? 0 : Number(price) || 0;
+    const finalOrig = isFreeForSubmission ? 0 : Number(originalPrice) || finalPrice;
 
     let targetSection = 'favorites';
     if (itemType === 'free' || finalPrice === 0) targetSection = 'free';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { HANDOVER_SPOTS } from '../data/mockData';
 
 export default function HandoverSpotsModal({ isOpen, onClose }) {

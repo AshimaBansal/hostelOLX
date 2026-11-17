@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const PRESET_IMAGES = [
   { label: 'Study Lamp', path: '/images/arc_lamp.png' },

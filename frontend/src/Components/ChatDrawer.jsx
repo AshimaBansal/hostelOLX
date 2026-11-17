@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function ChatDrawer({
   isOpen,
@@ -8,10 +8,10 @@ export default function ChatDrawer({
   onSelectChat,
   onSendMessage
 }) {
-  if (!isOpen) return null;
-
   const [inputMsg, setInputMsg] = useState('');
   const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
+
+  if (!isOpen) return null;
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -55,7 +55,6 @@ export default function ChatDrawer({
           <div className="md:w-2/5 border-r border-outline-variant/40 overflow-y-auto bg-surface-container-lowest">
             {chats.map((chat) => {
               const isSelected = activeChat && activeChat.id === chat.id;
-              const lastMsg = chat.messages[chat.messages.length - 1];
               return (
                 <div
                   key={chat.id}

@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser }) {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState({
     name: currentUser?.name || 'Ashi Bansal',
     email: currentUser?.email || 'ashimabansal@rishihood.edu.in',
@@ -12,6 +10,8 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser 
     roomNo: currentUser?.roomNo || 'Room 312',
     phone: currentUser?.phone || '+91 98765 43210'
   });
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();

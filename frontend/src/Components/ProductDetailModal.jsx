@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function ProductDetailModal({
   product,
@@ -8,11 +8,11 @@ export default function ProductDetailModal({
   onStartChat,
   onMakeOffer
 }) {
-  if (!product) return null;
-
   const [selectedSpot, setSelectedSpot] = useState('Nescafe Circle');
-  const [offerPrice, setOfferPrice] = useState(product.price);
+  const [offerPrice, setOfferPrice] = useState(product?.price ?? 0);
   const [offerSent, setOfferSent] = useState(false);
+
+  if (!product) return null;
 
   const discount = product.originalPrice > product.price
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)

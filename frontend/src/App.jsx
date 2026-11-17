@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Navbar from './Components/Navbar';
 import CampusPulse from './Components/CampusPulse';
 import HeroSection from './Components/HeroSection';

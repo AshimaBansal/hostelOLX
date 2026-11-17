@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function ClaimModal({ item, onClose, onConfirmClaim }) {
-  if (!item) return null;
-
-  const isLostItem = item.section === 'lost-found';
+  const isLostItem = item?.section === 'lost-found';
   const [meetingSpot, setMeetingSpot] = useState('Nescafe Circle');
   const [timeSlot, setTimeSlot] = useState('Today 5:00 PM – 5:30 PM');
   const [claimProof, setClaimProof] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  if (!item) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
