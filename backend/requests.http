@@ -1,0 +1,113 @@
+# Try the API from VS Code with the "REST Client" extension:
+# start the server (npm run dev), then click "Send Request" above any request.
+
+@base = http://localhost:5000/api
+@me = 11111111-1111-4111-8111-111111111111
+
+### Health
+GET {{base}}/health
+
+### Categories
+GET {{base}}/categories
+
+### Handover spots
+GET {{base}}/handover-spots
+
+### Homepage stats
+GET {{base}}/stats
+
+### Browse listings (study category, cheapest first)
+GET {{base}}/listings?category=study&sort=price_asc
+
+### Search listings
+GET {{base}}/listings?q=lamp
+
+### Free items
+GET {{base}}/listings?type=giveaway
+
+### One listing
+GET {{base}}/listings/1
+x-user-id: {{me}}
+
+### Create listing
+POST {{base}}/listings
+Content-Type: application/json
+x-user-id: {{me}}
+
+{
+  "title": "Electric Kettle",
+  "description": "1.5L, works perfectly",
+  "price": 600,
+  "originalPrice": 1100,
+  "itemCondition": "good",
+  "category": "appliances",
+  "locationText": "Hostel 1",
+  "images": ["/images/loop_radio.png"]
+}
+
+### Mark listing as reserved
+PATCH {{base}}/listings/15/status
+Content-Type: application/json
+x-user-id: {{me}}
+
+{ "status": "reserved" }
+
+### Add to wishlist
+POST {{base}}/wishlist/5
+x-user-id: {{me}}
+
+### My wishlist
+GET {{base}}/wishlist
+x-user-id: {{me}}
+
+### My chats
+GET {{base}}/conversations
+x-user-id: {{me}}
+
+### Start a chat with the seller of listing 1
+POST {{base}}/conversations
+Content-Type: application/json
+x-user-id: {{me}}
+
+{ "listingId": 1, "message": "Hi! Is the lamp still available?" }
+
+### Messages in chat 1
+GET {{base}}/conversations/1/messages
+x-user-id: {{me}}
+
+### Send a message
+POST {{base}}/conversations/1/messages
+Content-Type: application/json
+x-user-id: {{me}}
+
+{ "messageText": "See you at Nescafe Circle at 5!" }
+
+### Lost & found items
+GET {{base}}/lost-found
+
+### Report a lost item
+POST {{base}}/lost-found
+Content-Type: application/json
+x-user-id: {{me}}
+
+{
+  "itemType": "lost",
+  "title": "Blue water bottle",
+  "locationDescription": "Gym entrance",
+  "dateOccurred": "2026-11-15"
+}
+
+### Claim a found item
+POST {{base}}/lost-found/1/claims
+Content-Type: application/json
+x-user-id: {{me}}
+
+{ "claimMessage": "The case has my initials A.S. scratched on the back" }
+
+### My claims
+GET {{base}}/claims/mine
+x-user-id: {{me}}
+
+### My profile
+GET {{base}}/profiles/me
+x-user-id: {{me}}
