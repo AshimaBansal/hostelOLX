@@ -14,9 +14,11 @@ export function createAuthRepository(database = pool) {
          p.full_name,
          p.phone,
          p.hostel_name,
-         p.room_number
+         p.room_number,
+         pr.role
        FROM auth_identities ai
        JOIN profiles p ON p.id = ai.profile_id
+       LEFT JOIN profile_roles pr ON pr.profile_id = p.id
        WHERE ai.provider = 'local'
          AND LOWER(ai.email) = LOWER($1)
        LIMIT 1`,
@@ -32,9 +34,11 @@ export function createAuthRepository(database = pool) {
          ai.id AS identity_id,
          ai.email,
          p.id AS profile_id,
-         p.full_name
+         p.full_name,
+         pr.role
        FROM auth_identities ai
        JOIN profiles p ON p.id = ai.profile_id
+       LEFT JOIN profile_roles pr ON pr.profile_id = p.id
        WHERE ai.provider = 'google'
          AND ai.provider_subject = $1
        LIMIT 1`,
@@ -44,11 +48,19 @@ export function createAuthRepository(database = pool) {
     return result.rows[0] ?? null;
   }
 
-  async function createLocalAccount({
-    fullName,
-    email,
-    passwordHash,
-  }) {
+  async function findIdentityByEmail(email) {
+    const result = await database.query(
+      `SELECT provider
+       FROM auth_identities
+       WHERE LOWER(email) = LOWER($1)
+       LIMIT 1`,
+      [email.trim()]
+    );
+
+    return result.rows[0] ?? null;
+  }
+
+  async function createLocalAccount({ fullName, email, passwordHash }) {
     const client = await database.connect();
 
     try {
@@ -97,10 +109,62 @@ export function createAuthRepository(database = pool) {
     }
   }
 
+  async function createGoogleAccount({ fullName, email, googleSubject }) {
+    const client = await database.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const profileId = randomUUID();
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const profileResult = await client.query(
+        `INSERT INTO profiles (id, full_name)
+         VALUES ($1, $2)
+         RETURNING id, full_name`,
+        [profileId, fullName.trim()]
+      );
+
+      await client.query(
+        `INSERT INTO auth_identities
+          (profile_id, provider, provider_subject, email, email_verified)
+         VALUES ($1, 'google', $2, $3, TRUE)`,
+        [profileId, googleSubject, normalizedEmail]
+      );
+
+      await client.query(
+        `INSERT INTO profile_roles (profile_id, role)
+         VALUES ($1, 'STUDENT')`,
+        [profileId]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        id: profileId,
+        full_name: profileResult.rows[0].full_name,
+        email: normalizedEmail,
+        role: 'STUDENT',
+      };
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Transaction rollback failed:', rollbackError.message);
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   return {
     findLocalIdentityByEmail,
     findGoogleIdentityBySubject,
+    findIdentityByEmail,
     createLocalAccount,
+    createGoogleAccount,
   };
 }
 

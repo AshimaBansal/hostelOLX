@@ -147,3 +147,60 @@ describe('Auth repository', () => {
     assert.equal(released, true);
   });
 });
+  it('should find an identity by email', async () => {
+    const database = {
+      query: async () => ({
+        rows: [{ provider: 'google' }],
+      }),
+    };
+
+    const repository = createAuthRepository(database);
+    const result = await repository.findIdentityByEmail('student@gmail.com');
+
+    assert.deepEqual(result, { provider: 'google' });
+  });
+
+  it('should return null when an identity does not exist', async () => {
+    const database = {
+      query: async () => ({ rows: [] }),
+    };
+
+    const repository = createAuthRepository(database);
+    const result = await repository.findIdentityByEmail('unknown@gmail.com');
+
+    assert.equal(result, null);
+   it('should create a Google account and assign STUDENT role', async () => {
+    const queries = [];
+    const database = {
+      connect: async () => ({
+        query: async (sql, params) => {
+          queries.push(sql);
+
+          if (sql.includes('INSERT INTO profiles')) {
+            return {
+              rows: [{ id: params[0], full_name: params[1] }],
+            };
+          }
+
+          return { rows: [] };
+        },
+        release: () => {},
+      }),
+    };
+
+    const repository = createAuthRepository(database);
+
+    const account = await repository.createGoogleAccount({
+      fullName: 'Google Student',
+      email: 'STUDENT@GMAIL.COM',
+      googleSubject: 'google-123',
+    });
+
+    assert.equal(account.full_name, 'Google Student');
+    assert.equal(account.email, 'student@gmail.com');
+    assert.equal(account.role, 'STUDENT');
+    assert.equal(queries.length, 5);
+    assert.equal(queries[0], 'BEGIN');
+    assert.equal(queries[4], 'COMMIT');
+  });
+ });
