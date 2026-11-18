@@ -74,10 +74,22 @@ export function createAuthService(
   }
 
   async function loginWithGoogle(idToken) {
-    const googleUser = await verifyGoogleToken(idToken);
+    let googleUser;
+
+    try {
+      googleUser = await verifyGoogleToken(idToken);
+    } catch {
+      const error = new Error('Google account verification failed.');
+      error.statusCode = 401;
+      error.code = 'GOOGLE_AUTH_FAILED';
+      throw error;
+    }
 
     if (!googleUser?.sub || !googleUser.email || !googleUser.email_verified) {
-      throw new Error('Google account verification failed.');
+      const error = new Error('Google account verification failed.');
+      error.statusCode = 401;
+      error.code = 'GOOGLE_AUTH_FAILED';
+      throw error;
     }
 
     let account = await repository.findGoogleIdentityBySubject(

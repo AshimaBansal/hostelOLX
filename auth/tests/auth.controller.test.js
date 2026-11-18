@@ -162,4 +162,199 @@ describe('Auth controller', () => {
       console.error = originalError;
     }
   });
+
+  it('should return 200 when Google login succeeds', async () => {
+    const service = {
+      loginWithGoogle: async () => ({
+        user: {
+          id: 'profile-123',
+          fullName: 'Test Student',
+          email: 'student@gmail.com',
+          role: 'STUDENT',
+        },
+        accessToken: 'test-access-token',
+      }),
+    };
+
+    const controller = createAuthController(service);
+    const req = {
+      body: {
+        idToken: 'valid-google-token',
+      },
+    };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.googleLogin(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.message, 'Google login successful.');
+    assert.equal(res.body.user.id, 'profile-123');
+    assert.equal(res.body.accessToken, 'test-access-token');
+  });
+
+  it('should return 400 when Google ID token is missing', async () => {
+    const service = {
+      loginWithGoogle: async () => {
+        throw new Error('Service should not be called');
+      },
+    };
+
+    const controller = createAuthController(service);
+    const req = { body: {} };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.googleLogin(req, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.message, 'Google ID token is required.');
+  });
+
+  it('should return 409 when Google account conflicts with an existing account', async () => {
+    const service = {
+      loginWithGoogle: async () => {
+        const error = new Error('An account with this email already exists.');
+        error.statusCode = 409;
+        error.code = 'ACCOUNT_ALREADY_EXISTS';
+        throw error;
+      },
+    };
+
+    const controller = createAuthController(service);
+    const req = {
+      body: {
+        idToken: 'valid-google-token',
+      },
+    };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.googleLogin(req, res);
+
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.code, 'ACCOUNT_ALREADY_EXISTS');
+  });
+
+  it('should return 401 when Google authentication fails', async () => {
+    const service = {
+      loginWithGoogle: async () => {
+        const error = new Error('Invalid Google token');
+        error.statusCode = 401;
+        throw error;
+      },
+    };
+
+    const controller = createAuthController(service);
+    const req = {
+      body: {
+        idToken: 'invalid-google-token',
+      },
+    };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.googleLogin(req, res);
+
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.message, 'Google authentication failed.');
+  });
+
+  it('should return 200 and user info for me endpoint', async () => {
+    const controller = createAuthController();
+    const req = {
+      user: {
+        id: 'profile-123',
+        email: 'student@example.com',
+        role: 'STUDENT',
+      },
+    };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.me(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.user.id, 'profile-123');
+    assert.equal(res.body.user.email, 'student@example.com');
+    assert.equal(res.body.user.role, 'STUDENT');
+  });
+
+  it('should return 401 when user is not attached to request in me', async () => {
+    const controller = createAuthController();
+    const req = {};
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.me(req, res);
+
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.message, 'Authentication token is required.');
+  });
 });

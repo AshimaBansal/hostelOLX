@@ -226,4 +226,23 @@ describe('Auth service', () => {
     );
   });
 
+  it('should reject when Google token verification throws an error', async () => {
+    const repository = {};
+
+    const verifyGoogleToken = async () => {
+      throw new Error('Google token invalid');
+    };
+
+    const authService = createAuthService(repository, verifyGoogleToken);
+
+    await assert.rejects(
+      () => authService.loginWithGoogle('invalid-google-token'),
+      (error) => {
+        assert.equal(error.statusCode, 401);
+        assert.equal(error.code, 'GOOGLE_AUTH_FAILED');
+        return true;
+      }
+    );
+  });
+
 });

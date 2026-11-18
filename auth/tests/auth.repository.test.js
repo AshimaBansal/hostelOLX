@@ -146,7 +146,7 @@ describe('Auth repository', () => {
     assert.ok(queries.includes('ROLLBACK'));
     assert.equal(released, true);
   });
-});
+
   it('should find an identity by email', async () => {
     const database = {
       query: async () => ({
@@ -169,7 +169,9 @@ describe('Auth repository', () => {
     const result = await repository.findIdentityByEmail('unknown@gmail.com');
 
     assert.equal(result, null);
-   it('should create a Google account and assign STUDENT role', async () => {
+  });
+
+  it('should create a Google account and assign STUDENT role', async () => {
     const queries = [];
     const database = {
       connect: async () => ({
