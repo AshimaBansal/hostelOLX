@@ -2,7 +2,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createAuthController } from '../../src/controllers/auth.controller.js';
+import { createAuthController } from '../src/auth.controller.js';
 
 describe('Auth controller', () => {
   it('should return 201 when registration succeeds', async () => {

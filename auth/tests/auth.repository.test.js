@@ -1,7 +1,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAuthRepository } from '../../src/repositories/auth.repository.js';
+import { createAuthRepository } from '../src/auth.repository.js';
 
 describe('Auth repository', () => {
   it('should find a local identity by email', async () => {

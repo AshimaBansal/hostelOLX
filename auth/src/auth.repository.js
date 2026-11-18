@@ -1,6 +1,6 @@
 
 import { randomUUID } from 'node:crypto';
-import { pool } from '../config/database.js';
+import { pool } from './database.js';
 
 export function createAuthRepository(database = pool) {
   async function findLocalIdentityByEmail(email) {

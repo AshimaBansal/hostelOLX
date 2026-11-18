@@ -2,9 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import env from './config/env.js';
-import authRoutes from './routes/auth.routes.js';
-
+import authRoutes from './auth.routes.js';
+import env from './env.js';
 const app = express();
 
 app.use(helmet());

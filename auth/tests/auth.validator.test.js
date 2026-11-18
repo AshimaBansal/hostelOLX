@@ -2,7 +2,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { validateRegistration } from '../src/validators/register.validator.js';
+import { validateRegistration } from '../src/auth.validator.js';
 
 describe('Registration validator', () => {
   it('should accept valid registration details', () => {

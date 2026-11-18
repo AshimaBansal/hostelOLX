@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcrypt';
 
-import { createAuthService } from '../../src/services/auth.service.js';
+import { createAuthService } from '../src/auth.service.js';
 
 describe('Auth service', () => {
   it('should register a user with a hashed password', async () => {

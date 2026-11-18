@@ -1,7 +1,5 @@
-
 import bcrypt from 'bcrypt';
-
-import { authRepository } from '../repositories/auth.repository.js';
+import { authRepository } from './auth.repository.js';
 
 const SALT_ROUNDS = 12;
 

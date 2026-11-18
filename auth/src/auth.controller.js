@@ -1,7 +1,5 @@
-
-import { authService } from '../services/auth.service.js';
-import { validateRegistration } from '../validators/register.validator.js';
-
+import { authService } from './auth.service.js';
+import { validateRegistration } from './auth.validator.js';
 export function createAuthController(service = authService) {
   async function register(req, res) {
     const validation = validateRegistration(req.body);
