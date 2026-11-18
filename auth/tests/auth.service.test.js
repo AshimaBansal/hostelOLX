@@ -121,4 +121,109 @@ describe('Auth service', () => {
       }
     );
   });
+
+  it('should login an existing Google user', async () => {
+    const repository = {
+      findGoogleIdentityBySubject: async () => ({
+        profile_id: 'profile-123',
+        full_name: 'Test Student',
+        email: 'student@gmail.com',
+        role: 'STUDENT',
+      }),
+      findIdentityByEmail: async () => null,
+    };
+
+    const verifyGoogleToken = async () => ({
+      sub: 'google-123',
+      email: 'student@gmail.com',
+      email_verified: true,
+      name: 'Test Student',
+    });
+
+    const authService = createAuthService(repository, verifyGoogleToken);
+    const result = await authService.loginWithGoogle('fake-google-token');
+
+    assert.equal(result.user.id, 'profile-123');
+    assert.equal(result.user.email, 'student@gmail.com');
+    assert.equal(result.user.role, 'STUDENT');
+    assert.ok(result.accessToken);
+  });
+
+  it('should create an account for a new Google user', async () => {
+    let createdAccount;
+
+    const repository = {
+      findGoogleIdentityBySubject: async () => null,
+      findIdentityByEmail: async () => null,
+      createGoogleAccount: async (account) => {
+        createdAccount = account;
+
+        return {
+          id: 'profile-456',
+          full_name: account.fullName,
+          email: account.email,
+          role: 'STUDENT',
+        };
+      },
+    };
+
+    const verifyGoogleToken = async () => ({
+      sub: 'google-456',
+      email: 'newstudent@gmail.com',
+      email_verified: true,
+      name: 'New Student',
+    });
+
+    const authService = createAuthService(repository, verifyGoogleToken);
+    const result = await authService.loginWithGoogle('fake-google-token');
+
+    assert.equal(createdAccount.googleSubject, 'google-456');
+    assert.equal(result.user.id, 'profile-456');
+    assert.equal(result.user.role, 'STUDENT');
+    assert.ok(result.accessToken);
+  });
+
+  it('should reject Google login when a local account uses the same email', async () => {
+    const repository = {
+      findGoogleIdentityBySubject: async () => null,
+      findIdentityByEmail: async () => ({ provider: 'local' }),
+    };
+
+    const verifyGoogleToken = async () => ({
+      sub: 'google-789',
+      email: 'student@example.com',
+      email_verified: true,
+    });
+
+    const authService = createAuthService(repository, verifyGoogleToken);
+
+    await assert.rejects(
+      () => authService.loginWithGoogle('fake-google-token'),
+      (error) => {
+        assert.equal(error.statusCode, 409);
+        assert.equal(error.code, 'ACCOUNT_ALREADY_EXISTS');
+        return true;
+      }
+    );
+  });
+
+  it('should reject an unverified Google account', async () => {
+    const repository = {};
+
+    const verifyGoogleToken = async () => ({
+      sub: 'google-999',
+      email: 'student@gmail.com',
+      email_verified: false,
+    });
+
+    const authService = createAuthService(repository, verifyGoogleToken);
+
+    await assert.rejects(
+      () => authService.loginWithGoogle('fake-google-token'),
+      {
+        message: 'Google account verification failed.',
+      }
+    );
+  });
+
 });

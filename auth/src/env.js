@@ -9,12 +9,10 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().url().optional(),
-  JWT_PRIVATE_KEY_PATH: z.string().optional(),
-  JWT_PUBLIC_KEY_PATH: z.string().optional(),
+  JWT_SECRET: z.string().min(32),
   JWT_ISSUER: z.string().default('hostelolx-auth'),
   JWT_AUDIENCE: z.string().default('hostelolx-api'),
   ACCESS_TOKEN_TTL: z.string().default('15m'),
-  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().positive().default(7),
 });
 
 const result = envSchema.safeParse(process.env);
