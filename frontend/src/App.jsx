@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAuth } from './context/useAuth';
 import Navbar from './Components/Navbar';
 import CampusPulse from './Components/CampusPulse';
 import HeroSection from './Components/HeroSection';
@@ -9,7 +10,6 @@ import EditorialBanner from './Components/EditorialBanner';
 import Testimonials from './Components/Testimonials';
 import Footer from './Components/Footer';
 
-// Pages & Modals
 import SellItemPage from './Components/SellItemPage';
 import ProductDetailModal from './Components/ProductDetailModal';
 import SellItemModal from './Components/SellItemModal';
@@ -21,96 +21,393 @@ import ClaimModal from './Components/ClaimModal';
 import LoginModal from './Components/LoginModal';
 
 import { INITIAL_PRODUCTS, INITIAL_CHATS } from './data/mockData';
+import {
+  fetchListings,
+  createListingApi,
+  uploadImageApi,
+} from './services/marketplaceApi';
+import {
+  fetchWishlistApi,
+  addToWishlistApi,
+  removeFromWishlistApi,
+} from './services/wishlistApi';
+import {
+  fetchConversationsApi,
+  fetchMessagesApi,
+  startChatApi,
+  sendMessageApi,
+  markChatReadApi,
+} from './services/chatApi';
+import {
+  fetchRequestsApi,
+  createRequestApi,
+} from './services/requestsApi';
+import {
+  fetchProfileApi,
+  updateProfileApi,
+} from './services/profileApi';
+import { submitClaimApi } from './services/claimApi';
 
 function App() {
-  // Current Logged-in Student Account (With Room No & Hostel Details)
+  const { user, token, isAuthenticated } = useAuth();
+
   const [currentUser, setCurrentUser] = useState({
-    name: 'Ashi Bansal',
-    email: 'ashimabansal@rishihood.edu.in',
-    rollNo: 'NST25-084',
-    program: "Newton School of Technology • '25",
+    name: '',
+    email: '',
+    rollNo: '',
+    program: '',
     hostel: 'Hostel 1 (North Wing)',
-    roomNo: 'Room 312',
-    phone: '+91 98765 43210'
+    roomNo: '',
+    phone: ''
   });
 
-  // Global Data States
+  const activeStudent = useMemo(() => ({
+    ...currentUser,
+    name: user?.fullName || currentUser.name || (isAuthenticated ? 'Student' : 'Guest Student'),
+    email: user?.email || currentUser.email || '',
+    role: user?.role || 'STUDENT',
+  }), [currentUser, user, isAuthenticated]);
+
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
-  const [wishlist, setWishlist] = useState({
-    'fav-1': true,
-    'dorm-1': true,
-    'free-1': true
-  });
+  const [wishlist, setWishlist] = useState({});
   const [chats, setChats] = useState(INITIAL_CHATS);
   const [activeChatId, setActiveChatId] = useState(INITIAL_CHATS[0].id);
+  const [studentRequests, setStudentRequests] = useState([]);
 
-  // Filters & Navigation States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHostel, setSelectedHostel] = useState('All Hostels');
-  const [activeTab, setActiveTab] = useState('shop-campus'); // 'shop-campus' | 'sell-item' | etc.
+  const [activeTab, setActiveTab] = useState('shop-campus');
 
-  // Modal / Drawer Open States
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [claimProduct, setClaimProduct] = useState(null);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
-  const [sellModalType, setSellModalType] = useState('sell'); // 'sell' | 'free' | 'found'
+  const [sellModalType, setSellModalType] = useState('sell');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isHandoverSpotsOpen, setIsHandoverSpotsOpen] = useState(false);
 
-  // Toast Notification State
+  const [pendingAction, setPendingAction] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
-  const showToast = (msg) => {
+  const currentTab = !isAuthenticated && activeTab === 'sell-item' ? 'shop-campus' : activeTab;
+
+  const showToast = useCallback((msg) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage((curr) => (curr === msg ? null : curr));
     }, 3200);
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    fetchListings({}, token)
+      .then((data) => {
+        if (!ignore && data?.listings && data.listings.length > 0) {
+          setProducts(data.listings);
+        }
+      })
+      .catch((err) => {
+        void err;
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    let ignore = false;
+    fetchRequestsApi()
+      .then((reqs) => {
+        if (!ignore && reqs && reqs.length > 0) {
+          setStudentRequests(reqs);
+        }
+      })
+      .catch((err) => {
+        void err;
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      let ignore = false;
+      fetchProfileApi(token)
+        .then((prof) => {
+          if (!ignore && prof) {
+            setCurrentUser((prev) => ({
+              ...prev,
+              name: prof.fullName || prev.name,
+              email: prof.email || prev.email,
+              phone: prof.phone || prev.phone,
+              hostel: prof.hostelName || prev.hostel,
+              roomNo: prof.roomNumber || prev.roomNo,
+              program: prof.program || prev.program,
+            }));
+          }
+        })
+        .catch((err) => {
+          void err;
+        });
+      return () => {
+        ignore = true;
+      };
+    }
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      return;
+    }
+    let ignore = false;
+    fetchWishlistApi(token)
+      .then((items) => {
+        if (ignore || !Array.isArray(items)) return;
+        const map = {};
+        items.forEach((item) => {
+          if (item.id) map[item.id] = true;
+          if (item.listingId) map[item.listingId] = true;
+        });
+        setWishlist(map);
+      })
+      .catch((err) => {
+        void err;
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) return;
+    let ignore = false;
+
+    const fetchChats = () => {
+      fetchConversationsApi(token)
+        .then((convs) => {
+          if (ignore || !Array.isArray(convs) || convs.length === 0) return;
+          setChats((prev) => {
+            const map = new Map(prev.map((c) => [c.id, c]));
+            return convs.map((c) => {
+              const existing = map.get(c.id);
+              return {
+                ...c,
+                messages: existing?.messages || c.messages || [],
+              };
+            });
+          });
+        })
+        .catch((err) => {
+          void err;
+        });
+    };
+
+    fetchChats();
+    const interval = setInterval(fetchChats, 10000);
+    return () => {
+      ignore = true;
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token || !isChatOpen || !activeChatId) return;
+    let ignore = false;
+
+    const fetchActiveMessages = () => {
+      fetchMessagesApi(activeChatId, token)
+        .then((msgs) => {
+          if (ignore || !Array.isArray(msgs)) return;
+          setChats((prev) =>
+            prev.map((c) =>
+              c.id === activeChatId ? { ...c, messages: msgs } : c
+            )
+          );
+        })
+        .catch((err) => {
+          void err;
+        });
+    };
+
+    const interval = setInterval(fetchActiveMessages, 4000);
+    return () => {
+      ignore = true;
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, token, isChatOpen, activeChatId]);
+
+  const requireAuth = (actionCallback) => {
+    if (isAuthenticated) {
+      actionCallback();
+      return true;
+    }
+    setPendingAction(() => actionCallback);
+    setIsLoginModalOpen(true);
+    return false;
   };
 
-  // Wishlist Actions
-  const toggleWishlist = (id) => {
+  const handleAuthSuccess = () => {
+    if (pendingAction) {
+      const action = pendingAction;
+      setPendingAction(null);
+      action();
+    }
+  };
+
+  const handleCloseLoginModal = () => {
+    setIsLoginModalOpen(false);
+    setPendingAction(null);
+  };
+
+  const performToggleWishlist = async (id) => {
+    const isCurrentlySaved = Boolean(wishlist[id]);
     setWishlist((prev) => {
       const next = { ...prev };
-      if (next[id]) {
+      if (isCurrentlySaved) {
         delete next[id];
-        showToast('Removed from saved items');
       } else {
         next[id] = true;
-        showToast('Saved to your wishlist! ❤️');
       }
       return next;
     });
+
+    if (token) {
+      try {
+        if (isCurrentlySaved) {
+          await removeFromWishlistApi(id, token);
+          showToast('Removed from saved items');
+        } else {
+          await addToWishlistApi(id, token);
+          showToast('Saved to your wishlist! ❤️');
+        }
+      } catch (err) {
+        setWishlist((prev) => {
+          const next = { ...prev };
+          if (isCurrentlySaved) {
+            next[id] = true;
+          } else {
+            delete next[id];
+          }
+          return next;
+        });
+        showToast(err.message || 'Wishlist update failed');
+      }
+    } else {
+      showToast(isCurrentlySaved ? 'Removed from saved items' : 'Saved to your wishlist! ❤️');
+    }
   };
 
-  // Add Item to Feed
-  const handleAddNewItem = (newItem) => {
+  const toggleWishlist = (id) => {
+    requireAuth(() => performToggleWishlist(id));
+  };
+
+  const performAddNewItem = async (newItem) => {
+    let finalImageUrl = newItem.image || '/images/arc_lamp.png';
+
+    if (token) {
+      try {
+        if (finalImageUrl.startsWith('data:image')) {
+          const uploaded = await uploadImageApi(finalImageUrl, token);
+          if (uploaded) finalImageUrl = uploaded;
+        }
+
+        let listingType = 'sale';
+        if (newItem.section === 'free' || Number(newItem.price) === 0) {
+          if (newItem.section === 'lost-found') {
+            listingType = 'lost-found';
+          } else {
+            listingType = 'giveaway';
+          }
+        }
+
+        const created = await createListingApi(
+          {
+            title: newItem.title,
+            description: newItem.description,
+            price: Number(newItem.price) || 0,
+            originalPrice: Number(newItem.originalPrice) || 0,
+            listingType,
+            itemCondition: newItem.condition || 'good',
+            category: newItem.category || 'study',
+            locationText: newItem.location || 'Hostel 1',
+            images: [finalImageUrl],
+          },
+          token
+        );
+
+        if (created) {
+          setProducts((prev) => [created, ...prev]);
+          showToast(`"${newItem.title}" posted to campus marketplace! 🚀`);
+          return;
+        }
+      } catch (err) {
+        showToast(err.message || 'Failed to post item to server');
+        return;
+      }
+    }
+
     setProducts((prev) => [newItem, ...prev]);
     showToast(`"${newItem.title}" posted to campus marketplace! 🚀`);
   };
 
-  // Claim Item Handover Action
-  const handleConfirmClaim = (item, spot, time, proof) => {
-    const isLost = item.section === 'lost-found';
-    showToast(
-      isLost
-        ? `Claim submitted for ${item.title} at ${spot}! 🤝`
-        : `Claimed ${item.title} (₹0) from ${item.seller}! 🎉`
-    );
-
-    // Automatically create a chat with finder / senior
-    handleStartChat(
-      item,
-      isLost
-        ? `Hi ${item.seller}, I just submitted an ownership claim for ${item.title}. I can meet at ${spot} during ${time}. Proof: "${proof || 'As described'}".`
-        : `Hi ${item.seller}, I would love to claim the free ${item.title}! Can we meet at ${spot} around ${time}?`
-    );
+  const handleAddNewItem = (newItem) => {
+    requireAuth(() => performAddNewItem(newItem));
   };
 
-  // Start Chat / Open Chat Drawer
-  const handleStartChat = (product, initialMessage) => {
+  const handleSelectChat = async (chatId) => {
+    setActiveChatId(chatId);
+    if (token) {
+      try {
+        const msgs = await fetchMessagesApi(chatId, token);
+        setChats((prev) =>
+          prev.map((c) =>
+            c.id === chatId ? { ...c, messages: msgs, unread: false } : c
+          )
+        );
+        await markChatReadApi(chatId, token);
+      } catch (err) {
+        void err;
+      }
+    }
+  };
+
+  const performStartChat = async (product, initialMessage) => {
+    const defaultMsg =
+      initialMessage ||
+      `Hi ${product.seller || 'there'}, is this ${product.title} still available for handover?`;
+
+    if (token && product) {
+      try {
+        const serverChat = await startChatApi(
+          {
+            listingId: product.id ? Number(product.id) : null,
+            message: defaultMsg,
+          },
+          token
+        );
+
+        if (serverChat) {
+          let msgs = [];
+          try {
+            msgs = await fetchMessagesApi(serverChat.id, token);
+          } catch (err) {
+            void err;
+          }
+          const fullChat = { ...serverChat, messages: msgs };
+          setChats((prev) => [fullChat, ...prev.filter((c) => c.id !== serverChat.id)]);
+          setActiveChatId(serverChat.id);
+          setIsChatOpen(true);
+          return;
+        }
+      } catch (err) {
+        showToast(err.message || 'Failed to start conversation');
+        return;
+      }
+    }
+
     let targetChat = chats.find(
       (c) => c.sellerName === product.seller && c.productTitle === product.title
     );
@@ -118,7 +415,7 @@ function App() {
     if (!targetChat) {
       targetChat = {
         id: 'chat-' + Date.now(),
-        sellerName: product.seller || 'Verified Student',
+        sellerName: product.seller || 'Student Peer',
         sellerRole: product.sellerRole || 'Campus Resident',
         productTitle: product.title,
         productPrice: product.price,
@@ -127,9 +424,7 @@ function App() {
         messages: [
           {
             sender: 'Me',
-            text:
-              initialMessage ||
-              `Hi ${product.seller || 'there'}, is this ${product.title} still available for handover?`,
+            text: defaultMsg,
             time: 'Just now',
             isMe: true
           }
@@ -137,6 +432,7 @@ function App() {
       };
       setChats((prev) => [targetChat, ...prev]);
     } else if (initialMessage) {
+      targetChat.messages = targetChat.messages || [];
       targetChat.messages.push({
         sender: 'Me',
         text: initialMessage,
@@ -150,13 +446,77 @@ function App() {
     setIsChatOpen(true);
   };
 
-  const handleSendMessage = (chatId, text) => {
+  const handleStartChat = (product, initialMessage) => {
+    requireAuth(() => performStartChat(product, initialMessage));
+  };
+
+  const performConfirmClaim = async (item, spot, time, proof) => {
+    const isLost = item.section === 'lost-found';
+
+    if (token && item.id) {
+      try {
+        await submitClaimApi(
+          item.id,
+          {
+            proofDetails: proof || 'As described',
+            meetingLocation: spot,
+            meetingTime: time,
+          },
+          token
+        );
+      } catch (err) {
+        showToast(err.message || 'Failed to submit claim');
+        return;
+      }
+    }
+
+    showToast(
+      isLost
+        ? `Claim submitted for ${item.title} at ${spot}! 🤝`
+        : `Claimed ${item.title} (₹0) from ${item.seller}! 🎉`
+    );
+
+    performStartChat(
+      item,
+      isLost
+        ? `Hi ${item.seller}, I just submitted an ownership claim for ${item.title}. I can meet at ${spot} during ${time}. Proof: "${proof || 'As described'}".`
+        : `Hi ${item.seller}, I would love to claim the free ${item.title}! Can we meet at ${spot} around ${time}?`
+    );
+  };
+
+  const handleConfirmClaim = (item, spot, time, proof) => {
+    requireAuth(() => performConfirmClaim(item, spot, time, proof));
+  };
+
+  const performSendMessage = async (chatId, text) => {
+    if (token) {
+      try {
+        const newMsg = await sendMessageApi(chatId, text, token);
+        setChats((prev) =>
+          prev.map((c) => {
+            if (c.id === chatId) {
+              return {
+                ...c,
+                messages: [...(c.messages || []), newMsg],
+                lastMessage: { text, time: 'Just now' },
+              };
+            }
+            return c;
+          })
+        );
+        return;
+      } catch (err) {
+        showToast(err.message || 'Failed to send message');
+        return;
+      }
+    }
+
     const updated = chats.map((c) => {
       if (c.id === chatId) {
         return {
           ...c,
           messages: [
-            ...c.messages,
+            ...(c.messages || []),
             { sender: 'Me', text, time: 'Just now', isMe: true }
           ]
         };
@@ -164,37 +524,22 @@ function App() {
       return c;
     });
     setChats(updated);
-
-    // Automated peer response after 1.5 seconds
-    setTimeout(() => {
-      setChats((current) =>
-        current.map((c) => {
-          if (c.id === chatId) {
-            return {
-              ...c,
-              messages: [
-                ...c.messages,
-                {
-                  sender: c.sellerName,
-                  text: 'Sounds great! I will meet you at the Nescafe Circle as planned. Thanks!',
-                  time: 'Just now',
-                  isMe: false
-                }
-              ]
-            };
-          }
-          return c;
-        })
-      );
-    }, 1500);
   };
 
-  const handleMakeOffer = (product, offerPrice) => {
+  const handleSendMessage = (chatId, text) => {
+    requireAuth(() => performSendMessage(chatId, text));
+  };
+
+  const performMakeOffer = (product, offerPrice) => {
     showToast(`Counter offer of ₹${offerPrice} sent to ${product.seller}! 💬`);
   };
 
-  const handleContactRequester = (req) => {
-    handleStartChat(
+  const handleMakeOffer = (product, offerPrice) => {
+    requireAuth(() => performMakeOffer(product, offerPrice));
+  };
+
+  const performContactRequester = (req) => {
+    performStartChat(
       {
         seller: req.requester,
         sellerRole: req.location,
@@ -206,7 +551,25 @@ function App() {
     );
   };
 
-  // Filtered Products based on Search Query & Hostel
+  const handleContactRequester = (req) => {
+    requireAuth(() => performContactRequester(req));
+  };
+
+  const handleCreateRequest = async (reqData) => {
+    if (token) {
+      try {
+        const created = await createRequestApi(reqData, token);
+        if (created) {
+          setStudentRequests((prev) => [created, ...prev]);
+          showToast(`Request for "${reqData.title}" posted! 🤝`);
+          return;
+        }
+      } catch (err) {
+        showToast(err.message || 'Failed to post request');
+      }
+    }
+  };
+
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {
       if (selectedHostel !== 'All Hostels') {
@@ -216,9 +579,9 @@ function App() {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = item.title.toLowerCase().includes(q);
-        const matchesCategory = item.category.toLowerCase().includes(q);
-        const matchesLocation = item.location.toLowerCase().includes(q);
-        const matchesSeller = item.seller.toLowerCase().includes(q);
+        const matchesCategory = (item.category || '').toLowerCase().includes(q);
+        const matchesLocation = (item.location || '').toLowerCase().includes(q);
+        const matchesSeller = (item.seller || '').toLowerCase().includes(q);
         const matchesDesc = (item.description || '').toLowerCase().includes(q);
         return matchesTitle || matchesCategory || matchesLocation || matchesSeller || matchesDesc;
       }
@@ -227,19 +590,22 @@ function App() {
     });
   }, [products, selectedHostel, searchQuery]);
 
-  // Section divisions
   const favoritesList = filteredProducts.filter(
     (p) => p.section === 'favorites' || (p.section !== 'essentials' && p.section !== 'free' && p.section !== 'lost-found')
   );
   const essentialsList = filteredProducts.filter((p) => p.section === 'essentials');
-  const myListings = products.filter(
-    (p) => p.seller && (p.seller.includes('You') || p.seller.includes(currentUser.name))
-  );
-  const unreadCount = chats.filter((c) => c.unread).length;
+
+  const myListings = useMemo(() => {
+    if (!isAuthenticated) return [];
+    return products.filter(
+      (p) => p.isMine || (p.seller && (p.seller.includes('You') || (activeStudent.name && p.seller.includes(activeStudent.name))))
+    );
+  }, [products, isAuthenticated, activeStudent.name]);
+
+  const unreadCount = isAuthenticated ? chats.filter((c) => c.unread).length : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col text-on-surface">
-      {/* Toast Alert */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-primary text-on-primary px-5 py-3 rounded-full shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce border border-white/20">
           <span className="material-symbols-outlined text-[18px]">verified</span>
@@ -247,17 +613,26 @@ function App() {
         </div>
       )}
 
-      {/* Top Navbar */}
       <Navbar
         savedCount={Object.keys(wishlist).length}
         unreadCount={unreadCount}
-        onOpenWishlist={() => setIsWishlistOpen(true)}
-        onOpenChat={() => setIsChatOpen(true)}
-        onOpenSellModal={() => {
-          setActiveTab('sell-item');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+        onOpenWishlist={() => requireAuth(() => setIsWishlistOpen(true))}
+        onOpenChat={() => {
+          requireAuth(() => {
+            if (chats.length > 0 && activeChatId) {
+              handleSelectChat(activeChatId);
+            }
+            setIsChatOpen(true);
+          });
         }}
-        onOpenProfile={() => setIsProfileOpen(true)}
+        onOpenSellModal={() => {
+          requireAuth(() => {
+            setActiveTab('sell-item');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
+        }}
+        onOpenProfile={() => requireAuth(() => setIsProfileOpen(true))}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
         onOpenHandoverSpots={() => setIsHandoverSpotsOpen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -266,34 +641,35 @@ function App() {
           setSelectedHostel(h);
           showToast(`Filtered corridor: ${h}`);
         }}
-        activeTab={activeTab}
+        activeTab={currentTab}
         onTabChange={(tab) => {
+          if (tab === 'sell-item') {
+            requireAuth(() => {
+              setActiveTab('sell-item');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+            return;
+          }
           setActiveTab(tab);
           if (tab === 'pickup-spots') setIsHandoverSpotsOpen(true);
         }}
       />
 
-      {/* Main Content Body */}
       <main className="w-full pt-32 sm:pt-36 bg-background">
-        {/* VIEW 1: DEDICATED SELL ITEM PAGE */}
-        {activeTab === 'sell-item' ? (
+        {currentTab === 'sell-item' ? (
           <SellItemPage
-            currentUser={currentUser}
+            currentUser={activeStudent}
             onBackToHome={() => {
               setActiveTab('shop-campus');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onAddItem={handleAddNewItem}
-            onOpenEditProfile={() => setIsLoginModalOpen(true)}
+            onOpenEditProfile={() => requireAuth(() => setIsLoginModalOpen(true))}
           />
         ) : (
-          /* VIEW 2: MAIN CAMPUS MARKETPLACE HOMEPAGE */
           <div className="flex flex-col w-full">
-            {/* Outer Pastel Canvas Wrapper */}
             <div className="w-full bg-secondary-fixed/30 py-6 sm:py-8 lg:py-10 px-3 sm:px-6 lg:px-12">
-              {/* Central Curated Ivory Board */}
               <div className="max-w-7xl mx-auto bg-surface-container-lowest rounded-3xl p-5 sm:p-8 lg:p-12 shadow-[0_16px_40px_-10px_rgba(201,31,27,0.08),0_4px_16px_-2px_rgba(122,88,92,0.05)] flex flex-col gap-12 sm:gap-14">
-                {/* Campus Pulse Ticker */}
                 <CampusPulse
                   onJumpFree={() => {
                     setActiveTab('free-giveaway');
@@ -306,7 +682,6 @@ function App() {
                   onOpenSafety={() => setIsHandoverSpotsOpen(true)}
                 />
 
-                {/* Active Search & Corridor Indicator */}
                 {(searchQuery.trim() || selectedHostel !== 'All Hostels') && (
                   <div className="bg-secondary-fixed/40 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs font-semibold border border-secondary-fixed">
                     <div className="flex items-center gap-2">
@@ -329,7 +704,6 @@ function App() {
                   </div>
                 )}
 
-                {/* Hero Section */}
                 <HeroSection
                   onOpenHeroProduct={() => {
                     const lamp = products.find((p) => p.id === 'fav-1') || products[0];
@@ -337,7 +711,6 @@ function App() {
                   }}
                 />
 
-                {/* Campus Favorites Carousel & Grid */}
                 <CampusFavorites
                   products={favoritesList}
                   onToggleWishlist={toggleWishlist}
@@ -345,7 +718,6 @@ function App() {
                   onOpenProduct={(prod) => setSelectedProduct(prod)}
                 />
 
-                {/* Dorm Essentials & Quick Drops */}
                 <DormEssentials
                   products={essentialsList}
                   onToggleWishlist={toggleWishlist}
@@ -354,31 +726,36 @@ function App() {
                   onOpenHandoverSpots={() => setIsHandoverSpotsOpen(true)}
                 />
 
-                {/* Free & Giveaway + Lost & Found + Wanted Requests */}
                 <SpecialSections
                   products={products}
-                  activeTab={activeTab}
+                  requests={studentRequests}
+                  activeTab={currentTab}
+                  currentUser={activeStudent}
                   onOpenProduct={(prod) => setSelectedProduct(prod)}
                   onOpenSellModal={(type) => {
-                    if (type === 'free') {
-                      setActiveTab('sell-item');
-                    } else {
-                      setSellModalType(type || 'free');
-                      setIsSellModalOpen(true);
-                    }
+                    requireAuth(() => {
+                      if (type === 'free') {
+                        setActiveTab('sell-item');
+                      } else {
+                        setSellModalType(type || 'free');
+                        setIsSellModalOpen(true);
+                      }
+                    });
                   }}
-                  onClaimItem={(item) => setClaimProduct(item)}
+                  onClaimItem={(item) => requireAuth(() => setClaimProduct(item))}
                   onContactRequester={handleContactRequester}
                   onOpenReportModal={() => {
-                    setSellModalType('found');
-                    setIsSellModalOpen(true);
+                    requireAuth(() => {
+                      setSellModalType('found');
+                      setIsSellModalOpen(true);
+                    });
                   }}
+                  onOpenPostRequest={(action) => requireAuth(action)}
+                  onCreateRequest={handleCreateRequest}
                 />
 
-                {/* Editorial Feature Banner */}
                 <EditorialBanner />
 
-                {/* Peer Testimonials */}
                 <Testimonials />
               </div>
             </div>
@@ -386,27 +763,22 @@ function App() {
         )}
       </main>
 
-      {/* Footer */}
       <Footer
         onOpenHandoverSpots={() => setIsHandoverSpotsOpen(true)}
         onOpenSafety={() => setIsHandoverSpotsOpen(true)}
       />
 
-      {/* --- ALL MODALS & DRAWERS --- */}
-
-      {/* Product Detail & Negotiation Modal */}
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
           onToggleWishlist={toggleWishlist}
           isSaved={!!wishlist[selectedProduct.id]}
-          onStartChat={(prod, msg) => handleStartChat(prod, msg)}
+          onStartChat={handleStartChat}
           onMakeOffer={handleMakeOffer}
         />
       )}
 
-      {/* Claim Free or Found Item Modal */}
       {claimProduct && (
         <ClaimModal
           item={claimProduct}
@@ -415,16 +787,15 @@ function App() {
         />
       )}
 
-      {/* Quick Sell / Report Found Item Modal */}
       {isSellModalOpen && (
         <SellItemModal
           defaultType={sellModalType}
+          currentUser={activeStudent}
           onClose={() => setIsSellModalOpen(false)}
           onAddItem={handleAddNewItem}
         />
       )}
 
-      {/* Wishlist Drawer */}
       <WishlistDrawer
         isOpen={isWishlistOpen}
         onClose={() => setIsWishlistOpen(false)}
@@ -434,40 +805,54 @@ function App() {
         onOpenProduct={(prod) => setSelectedProduct(prod)}
       />
 
-      {/* Chat / Messages Drawer */}
       <ChatDrawer
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         chats={chats}
         activeChatId={activeChatId}
-        onSelectChat={(id) => setActiveChatId(id)}
+        onSelectChat={handleSelectChat}
         onSendMessage={handleSendMessage}
       />
 
-      {/* Student Profile Modal */}
       <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         myListings={myListings}
-        currentUser={currentUser}
+        currentUser={activeStudent}
         onOpenEditProfile={() => {
           setIsProfileOpen(false);
-          setIsLoginModalOpen(true);
+          requireAuth(() => setIsLoginModalOpen(true));
         }}
       />
 
-      {/* Login & Room Number Profile Editor Modal */}
       <LoginModal
         isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        currentUser={currentUser}
-        onUpdateUser={(updated) => {
-          setCurrentUser(updated);
-          showToast(`Updated student profile: ${updated.roomNo}! 🏫`);
+        onClose={handleCloseLoginModal}
+        currentUser={activeStudent}
+        onSuccess={handleAuthSuccess}
+        onUpdateUser={async (updated) => {
+          if (isAuthenticated) {
+            setCurrentUser(updated);
+            if (token) {
+              try {
+                await updateProfileApi(
+                  {
+                    roomNo: updated.roomNo,
+                    phone: updated.phone,
+                    hostel: updated.hostel,
+                    program: updated.program,
+                  },
+                  token
+                );
+              } catch (err) {
+                void err;
+              }
+            }
+            showToast(`Updated student profile: ${updated.roomNo || 'saved'}! 🏫`);
+          }
         }}
       />
 
-      {/* Handover Spots & Safety Modal */}
       <HandoverSpotsModal
         isOpen={isHandoverSpotsOpen}
         onClose={() => setIsHandoverSpotsOpen(false)}

@@ -79,3 +79,36 @@ describe('Google auth route registration', () => {
     assert.equal(response.body.message, 'Google ID token is required.');
   });
 });
+
+describe('Registration endpoint validation', () => {
+  it('should reject registration with unauthorized personal email', async () => {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({
+        fullName: 'Test Student',
+        email: 'student@gmail.com',
+        password: 'StudentPass123',
+      });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.message, 'Invalid registration details.');
+    assert.ok(
+      response.body.errors.some(
+        (err) => err.field === 'email' && err.message.includes('institutional email')
+      )
+    );
+  });
+
+  it('should reject registration with similar unauthorized domain', async () => {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({
+        fullName: 'Test Student',
+        email: 'student@nst.rishihood.edu.in.example.com',
+        password: 'StudentPass123',
+      });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.body.message, 'Invalid registration details.');
+  });
+});

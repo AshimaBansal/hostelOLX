@@ -19,7 +19,7 @@ describe('Auth controller', () => {
     const req = {
       body: {
         fullName: 'Test Student',
-        email: 'student@example.com',
+        email: 'student@rishihood.edu.in',
         password: 'Student123',
       },
     };
@@ -94,7 +94,7 @@ describe('Auth controller', () => {
     const req = {
       body: {
         fullName: 'Test Student',
-        email: 'student@example.com',
+        email: 'student@rishihood.edu.in',
         password: 'Student123',
       },
     };
@@ -133,7 +133,7 @@ describe('Auth controller', () => {
       const req = {
         body: {
           fullName: 'Test Student',
-          email: 'student@example.com',
+          email: 'student@rishihood.edu.in',
           password: 'Student123',
         },
       };
@@ -169,7 +169,7 @@ describe('Auth controller', () => {
         user: {
           id: 'profile-123',
           fullName: 'Test Student',
-          email: 'student@gmail.com',
+          email: 'student@rishihood.edu.in',
           role: 'STUDENT',
         },
         accessToken: 'test-access-token',
@@ -356,5 +356,76 @@ describe('Auth controller', () => {
 
     assert.equal(res.statusCode, 401);
     assert.equal(res.body.message, 'Authentication token is required.');
+  });
+
+  it('should return 403 when Google login fails due to unauthorized email domain', async () => {
+    const service = {
+      loginWithGoogle: async () => {
+        const error = new Error('Access restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).');
+        error.statusCode = 403;
+        error.code = 'UNAUTHORIZED_EMAIL_DOMAIN';
+        throw error;
+      },
+    };
+
+    const controller = createAuthController(service);
+    const req = {
+      body: {
+        idToken: 'valid-google-token',
+      },
+    };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.googleLogin(req, res);
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.body.code, 'UNAUTHORIZED_EMAIL_DOMAIN');
+  });
+
+  it('should return 400 when registration email is outside allowed domains', async () => {
+    const service = {
+      registerUser: async () => {
+        throw new Error('Service should not be called');
+      },
+    };
+
+    const controller = createAuthController(service);
+    const req = {
+      body: {
+        fullName: 'Test Student',
+        email: 'student@gmail.com',
+        password: 'Student123',
+      },
+    };
+
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        return this;
+      },
+    };
+
+    await controller.register(req, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.message, 'Invalid registration details.');
   });
 });

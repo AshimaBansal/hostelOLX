@@ -2,12 +2,16 @@ import { useState } from 'react';
 
 export default function SpecialSections({
   products = [],
+  requests = [],
   activeTab,
+  currentUser,
   onOpenProduct,
   onOpenSellModal,
   onClaimItem,
   onContactRequester,
-  onOpenReportModal
+  onOpenReportModal,
+  onOpenPostRequest,
+  onCreateRequest,
 }) {
   const [lostCategory, setLostCategory] = useState('all');
   const [postRequestOpen, setPostRequestOpen] = useState(false);
@@ -49,6 +53,8 @@ export default function SpecialSections({
     return item.category === lostCategory;
   });
 
+  const requestsToDisplay = requests && requests.length > 0 ? requests : requestsList;
+
   const handleCreateRequest = (e) => {
     e.preventDefault();
     if (!requestTitle.trim()) return;
@@ -56,11 +62,20 @@ export default function SpecialSections({
       id: 'req-' + Date.now(),
       title: 'Looking for: ' + requestTitle.trim(),
       budget: requestBudget.trim() ? `Under ₹${requestBudget}` : 'Flexible',
-      requester: 'Ashi (You, NST 25)',
-      location: 'Hostel 1',
+      requester: currentUser?.name ? `${currentUser.name} (You)` : 'You (Student)',
+      location: currentUser?.hostel ? currentUser.hostel.split(' ')[0] : 'Hostel 1',
       urgency: requestUrgency
     };
-    setRequestsList([newReq, ...requestsList]);
+    if (onCreateRequest) {
+      onCreateRequest({
+        title: 'Looking for: ' + requestTitle.trim(),
+        budget: requestBudget.trim() ? `Under ₹${requestBudget}` : 'Flexible',
+        urgency: requestUrgency,
+        location: currentUser?.hostel ? currentUser.hostel.split(' ')[0] : 'Hostel 1',
+      });
+    } else {
+      setRequestsList([newReq, ...requestsList]);
+    }
     setRequestTitle('');
     setRequestBudget('');
     setPostRequestOpen(false);
@@ -283,7 +298,13 @@ export default function SpecialSections({
             </p>
           </div>
           <button
-            onClick={() => setPostRequestOpen(true)}
+            onClick={() => {
+              if (onOpenPostRequest) {
+                onOpenPostRequest(() => setPostRequestOpen(true));
+              } else {
+                setPostRequestOpen(true);
+              }
+            }}
             className="bg-primary hover:bg-primary-container text-on-primary text-xs font-bold px-5 py-2.5 rounded-full shadow-sm transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
           >
             <span className="material-symbols-outlined text-[16px]">edit_note</span>
@@ -293,7 +314,7 @@ export default function SpecialSections({
 
         {/* Requests Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          {requestsList.map((req) => (
+          {requestsToDisplay.map((req) => (
             <div
               key={req.id}
               className="bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/60 shadow-xs flex flex-col justify-between hover:shadow-md transition-all"

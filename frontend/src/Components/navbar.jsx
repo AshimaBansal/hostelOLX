@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../context/useAuth';
 
 const HOSTELS = [
   'All Hostels',
@@ -17,6 +18,7 @@ export default function Navbar({
   onOpenChat,
   onOpenSellModal,
   onOpenProfile,
+  onOpenLogin,
   onOpenHandoverSpots,
   searchQuery,
   onSearchChange,
@@ -25,6 +27,7 @@ export default function Navbar({
   activeTab,
   onTabChange
 }) {
+  const { user, isAuthenticated } = useAuth();
   const [showHostelDropdown, setShowHostelDropdown] = useState(false);
 
   const navLinks = [
@@ -181,21 +184,36 @@ export default function Navbar({
               <span>Sell Item</span>
             </button>
 
-            {/* Student Profile Chip */}
-            <button
-              onClick={onOpenProfile}
-              title="View Student Profile"
-              className="hidden lg:flex items-center gap-2 bg-tertiary-fixed text-on-tertiary-fixed pl-3 pr-1 py-1 rounded-full border border-tertiary/20 shadow-xs hover:scale-105 transition-transform"
-            >
-              <span className="material-symbols-outlined text-[16px] text-tertiary">verified</span>
-              <div className="flex flex-col text-left">
-                <span className="text-[12px] leading-tight font-bold text-on-surface">Ashi</span>
-                <span className="text-[10px] text-tertiary leading-none font-semibold">NST '25</span>
-              </div>
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center ml-1 text-on-primary">
-                <span className="material-symbols-outlined text-[16px]">person</span>
-              </div>
-            </button>
+            {/* Student Profile / Sign-In Button */}
+            {isAuthenticated ? (
+              <button
+                onClick={onOpenProfile}
+                title="View Student Profile"
+                className="flex items-center gap-2 bg-tertiary-fixed text-on-tertiary-fixed pl-3 pr-1 py-1 rounded-full border border-tertiary/20 shadow-xs hover:scale-105 transition-transform"
+              >
+                <span className="material-symbols-outlined text-[16px] text-primary">account_circle</span>
+                <div className="flex flex-col text-left">
+                  <span className="text-[12px] leading-tight font-bold text-on-surface truncate max-w-[100px]">
+                    {user?.fullName?.split(' ')[0] || user?.email?.split('@')[0] || 'Student'}
+                  </span>
+                  <span className="text-[10px] text-tertiary leading-none font-semibold">
+                    {user?.role || 'STUDENT'}
+                  </span>
+                </div>
+                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center ml-1 text-on-primary">
+                  <span className="material-symbols-outlined text-[16px]">person</span>
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                title="Sign In with Google"
+                className="flex items-center gap-1.5 bg-surface-container-low hover:bg-surface-container text-primary font-bold text-[13px] px-3.5 py-1.5 rounded-full border border-outline-variant/60 shadow-xs transition-all active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[18px]">login</span>
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
 

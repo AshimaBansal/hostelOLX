@@ -13,7 +13,7 @@ const PRESET_IMAGES = [
   { label: 'Penguin Charm', path: '/images/penguin_keychain.png' }
 ];
 
-export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell' }) {
+export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell', currentUser }) {
   const isDefaultFree = defaultType === 'free';
   const isDefaultFound = defaultType === 'found';
 
@@ -27,19 +27,67 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
   const [condition, setCondition] = useState('Like new');
   const [description, setDescription] = useState('');
   const [selectedImage, setSelectedImage] = useState(PRESET_IMAGES[0].path);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  const isFreeForSubmission = itemType === 'free' || itemType === 'lost-found' || isFree;
+  const handleTypeChange = (newType) => {
+    setItemType(newType);
+    setErrorMessage(null);
+    if (newType === 'sell') {
+      setIsFree(false);
+      if (price === '0') {
+        setPrice('');
+      }
+      if (originalPrice === '0') {
+        setOriginalPrice('');
+      }
+    } else if (newType === 'free') {
+      setIsFree(true);
+      setPrice('0');
+      setOriginalPrice('0');
+    } else if (newType === 'lost-found') {
+      setIsFree(true);
+      setPrice('0');
+      setOriginalPrice('0');
+    }
+  };
+
+  const handleFreeToggle = (checked) => {
+    setIsFree(checked);
+    setErrorMessage(null);
+    if (checked) {
+      setPrice('0');
+      setOriginalPrice('0');
+    } else {
+      setPrice('');
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const finalPrice = isFreeForSubmission ? 0 : Number(price) || 0;
-    const finalOrig = isFreeForSubmission ? 0 : Number(originalPrice) || finalPrice;
+    let finalPrice;
+    let finalOrig;
+    let targetSection;
 
-    let targetSection = 'favorites';
-    if (itemType === 'free' || finalPrice === 0) targetSection = 'free';
-    if (itemType === 'lost-found') targetSection = 'lost-found';
+    if (itemType === 'lost-found') {
+      targetSection = 'lost-found';
+      finalPrice = 0;
+      finalOrig = 0;
+    } else if (itemType === 'free' || isFree) {
+      targetSection = 'free';
+      finalPrice = 0;
+      finalOrig = 0;
+    } else {
+      const parsedPrice = Number(price);
+      if (isNaN(parsedPrice) || parsedPrice <= 0) {
+        setErrorMessage('Paid listings must have a price greater than ₹0.');
+        return;
+      }
+      finalPrice = parsedPrice;
+      finalOrig = Number(originalPrice) || finalPrice;
+      targetSection = 'favorites';
+    }
 
     const newItem = {
       id: 'item-' + Date.now(),
@@ -49,8 +97,8 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
       category,
       section: targetSection,
       location,
-      seller: 'Ashi (You)',
-      sellerRole: "NST '25 • You",
+      seller: currentUser?.name ? `${currentUser.name} (You)` : 'You (Student)',
+      sellerRole: currentUser?.program || 'Student Resident',
       condition: itemType === 'lost-found' ? 'Found Item' : condition,
       description: description.trim() || 'Verified student item listed on HostelOLX.',
       image: selectedImage
@@ -92,11 +140,10 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
           </button>
         </div>
 
-        {/* Listing Type Switcher */}
         <div className="grid grid-cols-3 gap-2 bg-surface-container-low p-1.5 rounded-2xl mb-4 text-xs font-bold text-center">
           <button
             type="button"
-            onClick={() => setItemType('sell')}
+            onClick={() => handleTypeChange('sell')}
             className={`py-2 rounded-xl transition-all ${
               itemType === 'sell'
                 ? 'bg-primary text-on-primary shadow-xs'
@@ -107,7 +154,7 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
           </button>
           <button
             type="button"
-            onClick={() => setItemType('free')}
+            onClick={() => handleTypeChange('free')}
             className={`py-2 rounded-xl transition-all ${
               itemType === 'free'
                 ? 'bg-green-700 text-white shadow-xs'
@@ -118,7 +165,7 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
           </button>
           <button
             type="button"
-            onClick={() => setItemType('lost-found')}
+            onClick={() => handleTypeChange('lost-found')}
             className={`py-2 rounded-xl transition-all ${
               itemType === 'lost-found'
                 ? 'bg-amber-600 text-white shadow-xs'
@@ -130,7 +177,6 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-xs">
-          {/* Title */}
           <div>
             <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
               {itemType === 'lost-found' ? 'Found Item Name *' : 'Item Title *'}
@@ -149,7 +195,6 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
             />
           </div>
 
-          {/* Category & Location */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
@@ -188,7 +233,6 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
             </div>
           </div>
 
-          {/* Price & Free Toggle */}
           {itemType === 'sell' && (
             <div>
               <div className="flex justify-between items-center mb-1">
@@ -199,10 +243,7 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
                   <input
                     type="checkbox"
                     checked={isFree}
-                    onChange={(e) => {
-                      setIsFree(e.target.checked);
-                      if (e.target.checked) setPrice('0');
-                    }}
+                    onChange={(e) => handleFreeToggle(e.target.checked)}
                     className="rounded text-primary focus:ring-primary"
                   />
                   <span>Free Giveaway (₹0)</span>
@@ -213,14 +254,20 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number"
+                    min="1"
+                    step="1"
                     required={!isFree}
                     placeholder="Your Price (e.g. 450)"
                     value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    onChange={(e) => {
+                      setPrice(e.target.value);
+                      setErrorMessage(null);
+                    }}
                     className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary"
                   />
                   <input
                     type="number"
+                    min="0"
                     placeholder="Retail Price (optional)"
                     value={originalPrice}
                     onChange={(e) => setOriginalPrice(e.target.value)}
@@ -231,7 +278,6 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
             </div>
           )}
 
-          {/* Condition */}
           {itemType !== 'lost-found' && (
             <div>
               <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
@@ -256,7 +302,6 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
             </div>
           )}
 
-          {/* Description */}
           <div>
             <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
               {itemType === 'lost-found' ? 'Where / When Found?' : 'Description'}
@@ -274,7 +319,6 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
             />
           </div>
 
-          {/* Select Thumbnail Asset */}
           <div>
             <label className="block font-bold text-on-surface mb-1.5 uppercase tracking-wider text-[11px]">
               Choose Thumbnail
@@ -297,7 +341,22 @@ export default function SellItemModal({ onClose, onAddItem, defaultType = 'sell'
             </div>
           </div>
 
-          {/* Submit CTA */}
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                <span>{errorMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-red-500 hover:text-red-700 font-bold ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="pt-2">
             <button
               type="submit"

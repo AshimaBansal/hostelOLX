@@ -83,9 +83,11 @@ export default function SellItemPage({
       category,
       section: isFree ? 'free' : 'favorites',
       location: currentUser?.hostel ? currentUser.hostel.split(' ')[0] : 'Hostel 1',
-      roomNo: currentUser?.roomNo || 'Room 312',
-      seller: currentUser?.name || 'Ashi Bansal',
-      sellerRole: `${currentUser?.roomNo || 'Room 312'} • ${currentUser?.program || "NST '25"}`,
+      roomNo: currentUser?.roomNo || 'Unassigned',
+      seller: currentUser?.name || 'Student',
+      sellerRole: currentUser?.roomNo
+        ? `${currentUser.roomNo} • ${currentUser?.program || 'Student'}`
+        : (currentUser?.program || 'Student'),
       condition,
       usageDuration,
       handoverSpot,
@@ -136,9 +138,9 @@ export default function SellItemPage({
             <div className="flex items-center gap-2 bg-secondary-fixed/40 px-4 py-2 rounded-2xl border border-secondary-fixed shrink-0">
               <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
               <div className="text-left">
-                <div className="text-xs font-bold text-on-surface">{currentUser?.name || 'Ashi Bansal'}</div>
+                <div className="text-xs font-bold text-on-surface">{currentUser?.name || 'Student'}</div>
                 <div className="text-[11px] text-secondary font-semibold">
-                  {currentUser?.hostel || 'Hostel 1'} • {currentUser?.roomNo || 'Room 312'}
+                  {currentUser?.hostel || 'Hostel unassigned'} • {currentUser?.roomNo || 'Room unassigned'}
                 </div>
               </div>
             </div>
@@ -396,20 +398,20 @@ export default function SellItemPage({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-outline-variant/40">
                   <div>
                     <span className="text-[10px] text-on-surface-variant uppercase font-semibold block">Student</span>
-                    <span className="font-bold text-xs text-on-surface">{currentUser?.name || 'Ashi Bansal'}</span>
+                    <span className="font-bold text-xs text-on-surface">{currentUser?.name || 'Student'}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-on-surface-variant uppercase font-semibold block">Hostel Block</span>
-                    <span className="font-bold text-xs text-on-surface">{currentUser?.hostel || 'Hostel 1'}</span>
+                    <span className="font-bold text-xs text-on-surface">{currentUser?.hostel || 'Hostel unassigned'}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-on-surface-variant uppercase font-semibold block">Room Number</span>
-                    <span className="font-bold text-xs text-primary">{currentUser?.roomNo || 'Room 312'}</span>
+                    <span className="font-bold text-xs text-primary">{currentUser?.roomNo || 'Unassigned'}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-on-surface-variant uppercase font-semibold block">Verified Email</span>
                     <span className="font-bold text-[11px] text-tertiary truncate block">
-                      {currentUser?.email || 'ashimabansal@rishihood.edu.in'}
+                      {currentUser?.email || 'Not provided'}
                     </span>
                   </div>
                 </div>
@@ -460,7 +462,7 @@ export default function SellItemPage({
                     {condition}
                   </span>
                   <span className="absolute bottom-3 left-3 text-[11px] bg-surface-container-lowest/95 px-3 py-0.5 rounded-full text-on-surface font-semibold shadow-xs border border-outline-variant/40">
-                    {currentUser?.hostel?.split(' ')[0] || 'Hostel 1'} • {currentUser?.roomNo || 'Room 312'}
+                    {currentUser?.hostel?.split(' ')[0] || 'Hostel'} • {currentUser?.roomNo || 'Room unassigned'}
                   </span>
                 </div>
 
@@ -503,10 +505,10 @@ export default function SellItemPage({
                   <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-outline-variant/40 text-xs">
                     <div className="flex items-center gap-1.5">
                       <div className="w-6 h-6 rounded-full bg-secondary-fixed text-primary flex items-center justify-center font-bold text-[10px]">
-                        {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'AB'}
+                        {currentUser?.name ? currentUser.name.substring(0, 2).toUpperCase() : 'ST'}
                       </div>
                       <span className="font-bold text-on-surface">
-                        {currentUser?.name || 'Ashi Bansal'}
+                        {currentUser?.name || 'Student'}
                       </span>
                     </div>
                     <span className="text-[10px] text-primary font-bold">

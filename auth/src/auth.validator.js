@@ -1,5 +1,7 @@
-
 import { z } from 'zod';
+import { isAllowedEmailDomain, normalizeEmail, ALLOWED_EMAIL_DOMAINS } from './utils/email.js';
+
+export { isAllowedEmailDomain, normalizeEmail, ALLOWED_EMAIL_DOMAINS };
 
 export const registerSchema = z.object({
   fullName: z
@@ -12,7 +14,11 @@ export const registerSchema = z.object({
     .string()
     .trim()
     .email('Please enter a valid email address.')
-    .max(254, 'Email address is too long.'),
+    .max(254, 'Email address is too long.')
+    .refine(
+      (email) => isAllowedEmailDomain(email),
+      'Registration is restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).'
+    ),
 
   password: z
     .string()

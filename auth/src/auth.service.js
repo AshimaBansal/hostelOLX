@@ -1,9 +1,9 @@
-
 import bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import { SignJWT } from 'jose';
 import { authRepository } from './auth.repository.js';
 import env from './env.js';
+import { isAllowedEmailDomain, normalizeEmail } from './utils/email.js';
 
 const SALT_ROUNDS = 12;
 const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
@@ -21,7 +21,18 @@ export function createAuthService(
   }
 ) {
   async function registerUser({ fullName, email, password }) {
-    const existingAccount = await repository.findLocalIdentityByEmail(email);
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isAllowedEmailDomain(normalizedEmail)) {
+      const error = new Error(
+        'Registration is restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).'
+      );
+      error.statusCode = 403;
+      error.code = 'UNAUTHORIZED_EMAIL_DOMAIN';
+      throw error;
+    }
+
+    const existingAccount = await repository.findLocalIdentityByEmail(normalizedEmail);
 
     if (existingAccount) {
       const error = new Error('An account with this email already exists.');
@@ -35,7 +46,7 @@ export function createAuthService(
     try {
       const account = await repository.createLocalAccount({
         fullName,
-        email,
+        email: normalizedEmail,
         passwordHash,
       });
 
@@ -85,10 +96,21 @@ export function createAuthService(
       throw error;
     }
 
-    if (!googleUser?.sub || !googleUser.email || !googleUser.email_verified) {
+    if (!googleUser?.sub || !googleUser.email || googleUser.email_verified !== true) {
       const error = new Error('Google account verification failed.');
       error.statusCode = 401;
       error.code = 'GOOGLE_AUTH_FAILED';
+      throw error;
+    }
+
+    const normalizedEmail = normalizeEmail(googleUser.email);
+
+    if (!isAllowedEmailDomain(normalizedEmail)) {
+      const error = new Error(
+        'Access restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).'
+      );
+      error.statusCode = 403;
+      error.code = 'UNAUTHORIZED_EMAIL_DOMAIN';
       throw error;
     }
 
@@ -96,9 +118,18 @@ export function createAuthService(
       googleUser.sub
     );
 
+    if (account && !isAllowedEmailDomain(account.email)) {
+      const error = new Error(
+        'Access restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).'
+      );
+      error.statusCode = 403;
+      error.code = 'UNAUTHORIZED_EMAIL_DOMAIN';
+      throw error;
+    }
+
     if (!account) {
       const existingIdentity = await repository.findIdentityByEmail(
-        googleUser.email
+        normalizedEmail
       );
 
       if (existingIdentity) {
@@ -111,8 +142,8 @@ export function createAuthService(
       }
 
       account = await repository.createGoogleAccount({
-        fullName: googleUser.name || googleUser.email,
-        email: googleUser.email,
+        fullName: googleUser.name || normalizedEmail,
+        email: normalizedEmail,
         googleSubject: googleUser.sub,
       });
     }

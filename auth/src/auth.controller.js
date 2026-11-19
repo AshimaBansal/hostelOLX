@@ -1,4 +1,3 @@
-
 import { authService } from './auth.service.js';
 import { validateRegistration } from './auth.validator.js';
 
@@ -24,6 +23,13 @@ export function createAuthController(service = authService) {
         user,
       });
     } catch (error) {
+      if (error.statusCode === 403) {
+        return res.status(403).json({
+          message: error.message,
+          code: error.code || 'UNAUTHORIZED_EMAIL_DOMAIN',
+        });
+      }
+
       if (error.statusCode === 409) {
         return res.status(409).json({
           message: error.message,
@@ -56,6 +62,13 @@ export function createAuthController(service = authService) {
         ...result,
       });
     } catch (error) {
+      if (error.statusCode === 403) {
+        return res.status(403).json({
+          message: error.message,
+          code: error.code || 'UNAUTHORIZED_EMAIL_DOMAIN',
+        });
+      }
+
       if (error.statusCode === 409) {
         return res.status(409).json({
           message: error.message,
