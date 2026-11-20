@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/useAuth';
 
 export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser, onSuccess }) {
@@ -30,12 +30,22 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
 
   const [authMethod, setAuthMethod] = useState('email');
   const [emailMode, setEmailMode] = useState('signin');
-  const [emailForm, setEmailForm] = useState({ fullName: '', email: '', password: '' });
+  const [emailForm, setEmailForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
 
   const googleBtnRef = useRef(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const handleModalClose = useCallback(() => {
+    clearError();
+    setLocalError(null);
+    setLocalSubmitting(false);
+    setShowPassword(false);
+    setEmailForm({ fullName: '', email: '', password: '', confirmPassword: '' });
+    onClose();
+  }, [clearError, onClose]);
 
   const handleDemoSignIn = () => {
     if (loginDemoStudent) {
@@ -54,23 +64,75 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
       if (onSuccess) {
         onSuccess(signedInUser);
       }
-      onClose();
+      handleModalClose();
     }
   };
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     setLocalError(null);
+
+    const trimmedEmail = (emailForm.email || '').trim().toLowerCase();
+    if (!trimmedEmail) {
+      setLocalError('Please enter your campus email address.');
+      return;
+    }
+
+    const isInstitutional =
+      trimmedEmail.endsWith('@nst.rishihood.edu.in') ||
+      trimmedEmail.endsWith('@rishihood.edu.in');
+
+    if (!isInstitutional) {
+      setLocalError(
+        'Registration and login are restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).'
+      );
+      return;
+    }
+
+    if (!emailForm.password) {
+      setLocalError('Please enter your password.');
+      return;
+    }
+
+    if (emailMode === 'register') {
+      const trimmedName = (emailForm.fullName || '').trim();
+      if (trimmedName.length < 2) {
+        setLocalError('Full name must contain at least 2 characters.');
+        return;
+      }
+
+      if (emailForm.password.length < 8) {
+        setLocalError('Password must contain at least 8 characters.');
+        return;
+      }
+
+      if (
+        !/[a-z]/.test(emailForm.password) ||
+        !/[A-Z]/.test(emailForm.password) ||
+        !/[0-9]/.test(emailForm.password)
+      ) {
+        setLocalError(
+          'Password must contain at least one uppercase letter, one lowercase letter, and one number.'
+        );
+        return;
+      }
+
+      if (emailForm.password !== emailForm.confirmPassword) {
+        setLocalError('Passwords do not match. Please verify and re-enter.');
+        return;
+      }
+    }
+
     setLocalSubmitting(true);
 
     try {
       let result;
       if (emailMode === 'signin') {
-        result = await loginWithEmail(emailForm.email, emailForm.password);
+        result = await loginWithEmail(trimmedEmail, emailForm.password);
       } else {
         result = await registerWithEmail({
-          fullName: emailForm.fullName,
-          email: emailForm.email,
+          fullName: emailForm.fullName.trim(),
+          email: trimmedEmail,
           password: emailForm.password,
         });
       }
@@ -86,9 +148,13 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
       if (onSuccess) {
         onSuccess(signedInUser);
       }
-      onClose();
+      handleModalClose();
     } catch (err) {
-      setLocalError(err.message || 'Authentication failed.');
+      const formattedMessage =
+        Array.isArray(err.errors) && err.errors.length > 0
+          ? err.errors.map((item) => item.message).join(' ')
+          : (err.message || 'Authentication failed.');
+      setLocalError(formattedMessage);
     } finally {
       setLocalSubmitting(false);
     }
@@ -108,13 +174,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
       onUpdateUser,
       currentUser,
       onSuccess,
-      onClose,
+      onClose: handleModalClose,
     };
-  }, [loginWithGoogle, onUpdateUser, currentUser, onSuccess, onClose]);
+  }, [loginWithGoogle, onUpdateUser, currentUser, onSuccess, handleModalClose]);
 
   useEffect(() => {
     if (!isOpen) {
-      clearError();
       return;
     }
 
@@ -188,7 +253,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
     return () => {
       isMounted = false;
     };
-  }, [isOpen, googleClientId, isAuthenticated, clearError]);
+  }, [isOpen, authMethod, googleClientId, isAuthenticated]);
 
   if (!isOpen) return null;
 
@@ -198,7 +263,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
     if (onUpdateUser) {
       onUpdateUser(formData);
     }
-    onClose();
+    handleModalClose();
   };
 
   return (
@@ -226,7 +291,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
@@ -361,6 +426,8 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                     onClick={() => {
                       setEmailMode(emailMode === 'signin' ? 'register' : 'signin');
                       setLocalError(null);
+                      setShowPassword(false);
+                      setEmailForm((prev) => ({ ...prev, password: '', confirmPassword: '' }));
                     }}
                     className="text-[11px] font-bold text-primary hover:underline"
                   >
@@ -377,10 +444,11 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                       <input
                         type="text"
                         required
+                        disabled={localSubmitting}
                         placeholder="e.g. Your Full Name"
                         value={emailForm.fullName}
                         onChange={(e) => setEmailForm({ ...emailForm, fullName: e.target.value })}
-                        className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
+                        className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                       />
                     </div>
                   )}
@@ -392,10 +460,11 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                     <input
                       type="email"
                       required
+                      disabled={localSubmitting}
                       placeholder="e.g. student@nst.rishihood.edu.in"
                       value={emailForm.email}
                       onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
+                      className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                     />
                     <span className="text-[10px] text-on-surface-variant block mt-0.5">
                       Must be @nst.rishihood.edu.in or @rishihood.edu.in
@@ -403,19 +472,82 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   </div>
 
                   <div>
-                    <label className="block font-bold text-on-surface mb-1 text-[10px] uppercase tracking-wider">
-                      Password *
-                    </label>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block font-bold text-on-surface text-[10px] uppercase tracking-wider">
+                        Password *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {showPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                        <span>{showPassword ? 'Hide' : 'Show'}</span>
+                      </button>
+                    </div>
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
+                      disabled={localSubmitting}
                       minLength={8}
                       placeholder={emailMode === 'register' ? 'Min 8 chars, 1 uppercase, 1 lowercase, 1 number' : 'Your password'}
                       value={emailForm.password}
                       onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
+                      className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                     />
                   </div>
+
+                  {emailMode === 'register' && (
+                    <div>
+                      <label className="block font-bold text-on-surface mb-1 text-[10px] uppercase tracking-wider">
+                        Confirm Password *
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        disabled={localSubmitting}
+                        placeholder="Re-enter your password"
+                        value={emailForm.confirmPassword}
+                        onChange={(e) => setEmailForm({ ...emailForm, confirmPassword: e.target.value })}
+                        className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
+                      />
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                            emailForm.password.length >= 8
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-surface-container text-on-surface-variant'
+                          }`}
+                        >
+                          8+ chars
+                        </span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                            /[A-Z]/.test(emailForm.password) && /[a-z]/.test(emailForm.password)
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-surface-container text-on-surface-variant'
+                          }`}
+                        >
+                          Aa & 123
+                        </span>
+                        {emailForm.confirmPassword && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                              emailForm.password === emailForm.confirmPassword
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {emailForm.password === emailForm.confirmPassword
+                              ? 'Passwords match'
+                              : 'Passwords differ'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {localError && (
                     <div className="bg-red-50 border border-red-200 text-red-700 text-[11px] rounded-xl p-2 flex items-center justify-between">

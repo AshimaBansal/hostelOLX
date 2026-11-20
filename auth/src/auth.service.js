@@ -32,10 +32,16 @@ export function createAuthService(
       throw error;
     }
 
-    const existingAccount = await repository.findLocalIdentityByEmail(normalizedEmail);
+    const existingIdentity = repository.findIdentityByEmail
+      ? await repository.findIdentityByEmail(normalizedEmail)
+      : await repository.findLocalIdentityByEmail(normalizedEmail);
 
-    if (existingAccount) {
-      const error = new Error('An account with this email already exists.');
+    if (existingIdentity) {
+      const error = new Error(
+        existingIdentity.provider === 'google'
+          ? 'An account with this email already exists. Please sign in with Google.'
+          : 'An account with this email already exists.'
+      );
       error.statusCode = 409;
       error.code = 'EMAIL_ALREADY_EXISTS';
       throw error;
@@ -74,6 +80,7 @@ export function createAuthService(
     return new SignJWT({
       email: user.email,
       role: user.role,
+      fullName: user.fullName || user.full_name || '',
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(user.id)
@@ -183,6 +190,18 @@ export function createAuthService(
 
     const identity = await repository.findLocalIdentityByEmail(normalizedEmail);
     if (!identity || !identity.password_hash) {
+      const existingGoogle = repository.findIdentityByEmail
+        ? await repository.findIdentityByEmail(normalizedEmail)
+        : null;
+      if (existingGoogle && existingGoogle.provider === 'google') {
+        const error = new Error(
+          'This email is registered using Google Sign-In. Please sign in with Google.'
+        );
+        error.statusCode = 401;
+        error.code = 'USE_GOOGLE_LOGIN';
+        throw error;
+      }
+
       const error = new Error('Invalid email or password.');
       error.statusCode = 401;
       error.code = 'INVALID_CREDENTIALS';

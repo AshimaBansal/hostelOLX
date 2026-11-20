@@ -56,16 +56,18 @@ export function AuthProvider({ children }) {
     try {
       const response = await getMeApi(savedToken);
       const resolvedUser = response.user || response;
-      setUser({ ...DEMO_USER, ...resolvedUser });
+      setUser(resolvedUser);
       setToken(savedToken);
       setError(null);
     } catch (err) {
-      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-      setUser(null);
-      setToken(null);
       if (err?.status === 401) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+        setUser(null);
+        setToken(null);
         setError('Session expired. Please sign in again.');
       } else {
+        setUser(null);
+        setToken(savedToken);
         setError(err.message || 'Unable to verify session due to a network or server issue.');
       }
     } finally {
@@ -98,18 +100,20 @@ export function AuthProvider({ children }) {
         const response = await getMeApi(savedToken);
         const resolvedUser = response.user || response;
         if (!isCancelled) {
-          setUser({ ...DEMO_USER, ...resolvedUser });
+          setUser(resolvedUser);
           setToken(savedToken);
           setError(null);
         }
       } catch (err) {
         if (!isCancelled) {
-          sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-          setUser(null);
-          setToken(null);
           if (err?.status === 401) {
+            sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+            setUser(null);
+            setToken(null);
             setError('Session expired. Please sign in again.');
           } else {
+            setUser(null);
+            setToken(savedToken);
             setError(err.message || 'Unable to verify session due to a network or server issue.');
           }
         }

@@ -24,9 +24,15 @@ app.use(
   })
 );
 
-const allowedOrigins = env.FRONTEND_URL
-  ? env.FRONTEND_URL.split(',').map((o) => o.trim()).filter(Boolean)
-  : ['http://localhost:5173'];
+const allowedOrigins = [
+  ...(env.FRONTEND_URL ? env.FRONTEND_URL.split(',').map((o) => o.trim()).filter(Boolean) : ['http://localhost:5173']),
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
+];
 
 app.use(
   cors({
@@ -34,12 +40,11 @@ app.use(
       if (!origin) return callback(null, true);
       if (
         allowedOrigins.includes(origin) ||
-        allowedOrigins.includes('*') ||
-        env.NODE_ENV !== 'production'
+        (env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))
       ) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
   })

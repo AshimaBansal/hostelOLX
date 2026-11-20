@@ -164,6 +164,7 @@ export function createAuthController(service = authService) {
         id: req.user.id,
         email: req.user.email,
         role: req.user.role,
+        fullName: req.user.fullName || '',
       },
     });
   }

@@ -53,6 +53,7 @@ export function createAuthMiddleware(options = {}) {
         id: payload.sub,
         email: payload.email,
         role: payload.role,
+        fullName: payload.fullName || '',
       };
 
       return next();

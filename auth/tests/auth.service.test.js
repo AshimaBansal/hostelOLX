@@ -531,4 +531,58 @@ describe('Auth service', () => {
       }
     );
   });
+
+  it('should reject registration when email already exists as a Google account', async () => {
+    const repository = {
+      findIdentityByEmail: async () => ({
+        provider: 'google',
+        email: 'student@rishihood.edu.in',
+      }),
+      createLocalAccount: async () => {
+        throw new Error('Account should not be created');
+      },
+    };
+
+    const authService = createAuthService(repository);
+
+    await assert.rejects(
+      () =>
+        authService.registerUser({
+          fullName: 'Test Student',
+          email: 'student@rishihood.edu.in',
+          password: 'Student123',
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 409);
+        assert.equal(error.code, 'EMAIL_ALREADY_EXISTS');
+        assert.ok(error.message.includes('Google'));
+        return true;
+      }
+    );
+  });
+
+  it('should reject email login with a hint when account was registered via Google', async () => {
+    const repository = {
+      findLocalIdentityByEmail: async () => null,
+      findIdentityByEmail: async () => ({
+        provider: 'google',
+        email: 'student@nst.rishihood.edu.in',
+      }),
+    };
+
+    const authService = createAuthService(repository);
+    await assert.rejects(
+      () =>
+        authService.loginWithEmail({
+          email: 'student@nst.rishihood.edu.in',
+          password: 'Password123',
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 401);
+        assert.equal(error.code, 'USE_GOOGLE_LOGIN');
+        assert.ok(error.message.includes('Google'));
+        return true;
+      }
+    );
+  });
 });
