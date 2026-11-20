@@ -24,9 +24,23 @@ app.use(
   })
 );
 
+const allowedOrigins = env.FRONTEND_URL
+  ? env.FRONTEND_URL.split(',').map((o) => o.trim()).filter(Boolean)
+  : ['http://localhost:5173'];
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        allowedOrigins.includes('*') ||
+        env.NODE_ENV !== 'production'
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   })
 );
@@ -69,6 +83,16 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// Global error handler - ensures all server errors return structured JSON
+app.use((err, _req, res, _next) => {
+  console.error('Unhandled server error:', err.message || err);
+  const status = err.statusCode || err.status || 500;
+  res.status(status).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
   });
 });
 

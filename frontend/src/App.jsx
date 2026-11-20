@@ -49,7 +49,7 @@ import {
 import { submitClaimApi } from './services/claimApi';
 
 function App() {
-  const { user, token, isAuthenticated } = useAuth();
+  const { user, token, isAuthenticated, logout } = useAuth();
 
   const [currentUser, setCurrentUser] = useState({
     name: '',
@@ -65,6 +65,10 @@ function App() {
     ...currentUser,
     name: user?.fullName || currentUser.name || (isAuthenticated ? 'Student' : 'Guest Student'),
     email: user?.email || currentUser.email || '',
+    hostel: user?.hostel || currentUser.hostel || 'Hostel 1 (North Wing)',
+    roomNo: user?.roomNo || currentUser.roomNo || '',
+    program: user?.program || currentUser.program || '',
+    phone: user?.phone || currentUser.phone || '',
     role: user?.role || 'STUDENT',
   }), [currentUser, user, isAuthenticated]);
 
@@ -284,16 +288,26 @@ function App() {
           showToast('Saved to your wishlist! ❤️');
         }
       } catch (err) {
-        setWishlist((prev) => {
-          const next = { ...prev };
-          if (isCurrentlySaved) {
-            next[id] = true;
-          } else {
-            delete next[id];
-          }
-          return next;
-        });
-        showToast(err.message || 'Wishlist update failed');
+        const isAuthError =
+          err?.status === 401 ||
+          /expired|invalid|token/i.test(err?.message || '');
+
+        if (isAuthError) {
+          setWishlist((prev) => {
+            const next = { ...prev };
+            if (isCurrentlySaved) {
+              next[id] = true;
+            } else {
+              delete next[id];
+            }
+            return next;
+          });
+          if (logout) logout();
+          setIsLoginModalOpen(true);
+          showToast('Session expired. Please sign in again.');
+        } else {
+          showToast(isCurrentlySaved ? 'Removed from saved items' : 'Saved to your wishlist! ❤️');
+        }
       }
     } else {
       showToast(isCurrentlySaved ? 'Removed from saved items' : 'Saved to your wishlist! ❤️');

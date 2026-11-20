@@ -443,4 +443,92 @@ describe('Auth service', () => {
       }
     );
   });
+
+  it('should login user with correct email and password', async () => {
+    const passwordHash = await bcrypt.hash('StudentPass123', 10);
+    const repository = {
+      findLocalIdentityByEmail: async () => ({
+        profile_id: 'profile-local-1',
+        full_name: 'Local Student',
+        email: 'student@nst.rishihood.edu.in',
+        password_hash: passwordHash,
+        role: 'STUDENT',
+      }),
+    };
+
+    const authService = createAuthService(repository);
+    const result = await authService.loginWithEmail({
+      email: 'student@nst.rishihood.edu.in',
+      password: 'StudentPass123',
+    });
+
+    assert.equal(result.user.id, 'profile-local-1');
+    assert.equal(result.user.email, 'student@nst.rishihood.edu.in');
+    assert.ok(result.accessToken);
+  });
+
+  it('should reject login with incorrect password', async () => {
+    const passwordHash = await bcrypt.hash('CorrectPass123', 10);
+    const repository = {
+      findLocalIdentityByEmail: async () => ({
+        profile_id: 'profile-local-1',
+        full_name: 'Local Student',
+        email: 'student@nst.rishihood.edu.in',
+        password_hash: passwordHash,
+        role: 'STUDENT',
+      }),
+    };
+
+    const authService = createAuthService(repository);
+    await assert.rejects(
+      () =>
+        authService.loginWithEmail({
+          email: 'student@nst.rishihood.edu.in',
+          password: 'WrongPassword',
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 401);
+        assert.equal(error.code, 'INVALID_CREDENTIALS');
+        return true;
+      }
+    );
+  });
+
+  it('should reject login with non-existent email', async () => {
+    const repository = {
+      findLocalIdentityByEmail: async () => null,
+    };
+
+    const authService = createAuthService(repository);
+    await assert.rejects(
+      () =>
+        authService.loginWithEmail({
+          email: 'notfound@nst.rishihood.edu.in',
+          password: 'Password123',
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 401);
+        assert.equal(error.code, 'INVALID_CREDENTIALS');
+        return true;
+      }
+    );
+  });
+
+  it('should reject login with unauthorized email domain', async () => {
+    const repository = {};
+    const authService = createAuthService(repository);
+
+    await assert.rejects(
+      () =>
+        authService.loginWithEmail({
+          email: 'outsider@gmail.com',
+          password: 'Password123',
+        }),
+      (error) => {
+        assert.equal(error.statusCode, 403);
+        assert.equal(error.code, 'UNAUTHORIZED_EMAIL_DOMAIN');
+        return true;
+      }
+    );
+  });
 });

@@ -21,6 +21,7 @@ export function createAuthController(service = authService) {
       return res.status(201).json({
         message: 'Account created successfully.',
         user,
+        ...(service.generateAccessToken ? { accessToken: await service.generateAccessToken(user) } : {}),
       });
     } catch (error) {
       if (error.statusCode === 403) {
@@ -90,6 +91,64 @@ export function createAuthController(service = authService) {
     }
   }
 
+  async function login(req, res) {
+    const { email, password } = req.body || {};
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: 'Email and password are required.',
+      });
+    }
+
+    try {
+      const result = await service.loginWithEmail({ email, password });
+
+      return res.status(200).json({
+        message: 'Login successful.',
+        ...result,
+      });
+    } catch (error) {
+      if (error.statusCode === 403) {
+        return res.status(403).json({
+          message: error.message,
+          code: error.code || 'UNAUTHORIZED_EMAIL_DOMAIN',
+        });
+      }
+
+      if (error.statusCode === 401) {
+        return res.status(401).json({
+          message: error.message || 'Invalid email or password.',
+          code: error.code || 'INVALID_CREDENTIALS',
+        });
+      }
+
+      console.error('Login failed:', error.message);
+
+      return res.status(500).json({
+        message: 'Something went wrong during login.',
+      });
+    }
+  }
+
+  async function demoLogin(_req, res) {
+    const demoUser = {
+      id: '11111111-1111-1111-1111-111111111111',
+      fullName: 'Ashi Bansal',
+      email: 'ashi.bansal@nst.rishihood.edu.in',
+      role: 'STUDENT',
+    };
+
+    const accessToken = service.generateAccessToken
+      ? await service.generateAccessToken(demoUser)
+      : 'demo-jwt-token-hostelolx';
+
+    return res.status(200).json({
+      message: 'Demo login successful.',
+      user: demoUser,
+      accessToken,
+    });
+  }
+
   async function me(req, res) {
     if (!req.user) {
       return res.status(401).json({
@@ -108,6 +167,8 @@ export function createAuthController(service = authService) {
 
   return {
     register,
+    login,
+    demoLogin,
     googleLogin,
     me,
     getMe: me,

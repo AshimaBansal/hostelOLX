@@ -1,5 +1,26 @@
 const API_BASE_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:4001';
 
+export async function loginApi({ email, password }) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(data.message || 'Login failed.');
+    error.status = response.status;
+    error.code = data.code;
+    throw error;
+  }
+
+  return data;
+}
+
 export async function loginWithGoogleApi(idToken) {
   const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
     method: 'POST',
@@ -15,6 +36,25 @@ export async function loginWithGoogleApi(idToken) {
     const error = new Error(data.message || 'Google login failed.');
     error.status = response.status;
     error.code = data.code;
+    throw error;
+  }
+
+  return data;
+}
+
+export async function demoLoginApi() {
+  const response = await fetch(`${API_BASE_URL}/api/auth/demo`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const error = new Error(data.message || 'Demo login failed.');
+    error.status = response.status;
     throw error;
   }
 

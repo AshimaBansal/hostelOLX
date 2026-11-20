@@ -428,4 +428,44 @@ describe('Auth controller', () => {
     assert.equal(res.statusCode, 400);
     assert.equal(res.body.message, 'Invalid registration details.');
   });
+
+  it('should return 200 when login succeeds', async () => {
+    const service = {
+      loginWithEmail: async () => ({
+        user: { id: 'user-1', email: 'test@nst.rishihood.edu.in', role: 'STUDENT' },
+        accessToken: 'access-token-123',
+      }),
+    };
+
+    const controller = createAuthController(service);
+    const req = {
+      body: { email: 'test@nst.rishihood.edu.in', password: 'Password123' },
+    };
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) { this.statusCode = code; return this; },
+      json(data) { this.body = data; return this; },
+    };
+
+    await controller.login(req, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.message, 'Login successful.');
+    assert.equal(res.body.accessToken, 'access-token-123');
+  });
+
+  it('should return 400 when login credentials are missing', async () => {
+    const controller = createAuthController();
+    const req = { body: {} };
+    const res = {
+      statusCode: null,
+      body: null,
+      status(code) { this.statusCode = code; return this; },
+      json(data) { this.body = data; return this; },
+    };
+
+    await controller.login(req, res);
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.message, 'Email and password are required.');
+  });
 });

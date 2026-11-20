@@ -57,7 +57,7 @@ export default function ProfileModal({
               <span className="material-symbols-outlined text-[16px]">
                 {isAuthenticated ? 'account_circle' : 'person_outline'}
               </span>
-              <span>{isAuthenticated ? 'Google Account Authenticated' : 'Guest Account'}</span>
+              <span>{isAuthenticated ? 'Verified Student Account' : 'Guest Account'}</span>
             </div>
             <p className="text-[11px] text-on-surface-variant mt-0.5">
               {currentUser?.hostel || 'Hostel unassigned'} •{' '}
@@ -141,7 +141,7 @@ export default function ProfileModal({
               className="w-full bg-red-50 hover:bg-red-100 text-red-700 py-2.5 rounded-full font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-red-200"
             >
               <span className="material-symbols-outlined text-[16px]">logout</span>
-              <span>Sign Out of Google Account</span>
+              <span>Sign Out</span>
             </button>
           )}
 

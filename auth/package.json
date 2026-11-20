@@ -9,7 +9,8 @@
   "scripts": {
     "test": "JWT_SECRET=test-secret-key-that-is-at-least-32-characters-long node --test",
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "db:migrate": "node scripts/migrate.js"
   },
   "keywords": [],
   "author": "",

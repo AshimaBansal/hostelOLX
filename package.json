@@ -1,0 +1,14 @@
+{
+  "name": "hostelolx",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HostelOLX - Campus marketplace and peer exchange platform for college hostels",
+  "scripts": {
+    "dev:backend": "npm --prefix auth run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test": "npm --prefix auth test",
+    "build": "npm --prefix frontend run build",
+    "migrate": "npm --prefix auth run db:migrate"
+  }
+}
+

@@ -163,9 +163,60 @@ export function createAuthService(
     };
   }
 
+  async function loginWithEmail({ email, password }) {
+    if (!email || !password) {
+      const error = new Error('Email and password are required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isAllowedEmailDomain(normalizedEmail)) {
+      const error = new Error(
+        'Login is restricted to institutional email addresses (@nst.rishihood.edu.in or @rishihood.edu.in).'
+      );
+      error.statusCode = 403;
+      error.code = 'UNAUTHORIZED_EMAIL_DOMAIN';
+      throw error;
+    }
+
+    const identity = await repository.findLocalIdentityByEmail(normalizedEmail);
+    if (!identity || !identity.password_hash) {
+      const error = new Error('Invalid email or password.');
+      error.statusCode = 401;
+      error.code = 'INVALID_CREDENTIALS';
+      throw error;
+    }
+
+    const isMatch = await bcrypt.compare(password, identity.password_hash);
+    if (!isMatch) {
+      const error = new Error('Invalid email or password.');
+      error.statusCode = 401;
+      error.code = 'INVALID_CREDENTIALS';
+      throw error;
+    }
+
+    const user = {
+      id: identity.profile_id,
+      fullName: identity.full_name,
+      email: identity.email,
+      role: identity.role || 'STUDENT',
+    };
+
+    const accessToken = await generateAccessToken(user);
+
+    return {
+      user,
+      accessToken,
+    };
+  }
+
   return {
     registerUser,
     loginWithGoogle,
+    loginWithEmail,
+    generateAccessToken,
   };
 }
 
