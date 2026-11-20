@@ -35,17 +35,41 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const [localError, setLocalError] = useState(null);
 
+  const googleBtnContainerRef = useRef(null);
   const googleBtnRef = useRef(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+  // Dismiss any Google One Tap or floating picker element from the DOM
+  const dismissGis = useCallback(() => {
+    if (window.google?.accounts?.id?.cancel) {
+      try {
+        window.google.accounts.id.cancel();
+      } catch (e) {
+        void e;
+      }
+    }
+    try {
+      const picker = document.getElementById('credential_picker_container');
+      if (picker) picker.remove();
+      const iframe = document.getElementById('credential_picker_iframe');
+      if (iframe) iframe.remove();
+    } catch (e) {
+      void e;
+    }
+    if (googleBtnRef.current) {
+      googleBtnRef.current.innerHTML = '';
+    }
+  }, []);
+
   const handleModalClose = useCallback(() => {
+    dismissGis();
     clearError();
     setLocalError(null);
     setLocalSubmitting(false);
     setShowPassword(false);
     setEmailForm({ fullName: '', email: '', password: '', confirmPassword: '' });
     onClose();
-  }, [clearError, onClose]);
+  }, [dismissGis, clearError, onClose]);
 
   const handleDemoSignIn = () => {
     if (loginDemoStudent) {
@@ -178,19 +202,25 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
     };
   }, [loginWithGoogle, onUpdateUser, currentUser, onSuccess, handleModalClose]);
 
+  // Google Identity Services lifecycle: active ONLY on Google Sign-In tab
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    if (isAuthenticated) {
+    if (!isOpen || isAuthenticated || authMethod !== 'google') {
+      dismissGis();
       return;
     }
 
     let isMounted = true;
 
-    const initGis = () => {
-      if (!window.google?.accounts?.id || !googleBtnRef.current || !googleClientId) return;
+    const measureButtonWidth = () => {
+      const container = googleBtnContainerRef.current;
+      if (!container) return 240;
+      const rect = container.getBoundingClientRect();
+      // Google GIS allows button width between 200px and 400px
+      return Math.min(Math.max(Math.floor(rect.width - 8), 200), 380);
+    };
+
+    const renderGisButton = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current || !googleClientId || !isMounted) return;
 
       try {
         window.google.accounts.id.initialize({
@@ -215,45 +245,55 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
             }
           },
           auto_select: false,
+          cancel_on_tap_outside: true,
         });
 
-        if (googleBtnRef.current) {
-          googleBtnRef.current.innerHTML = '';
-          window.google.accounts.id.renderButton(googleBtnRef.current, {
-            type: 'standard',
-            theme: 'outline',
-            size: 'large',
-            text: 'signin_with',
-            shape: 'pill',
-            logo_alignment: 'left',
-            width: 320,
-          });
-        }
+        const responsiveWidth = measureButtonWidth();
+        googleBtnRef.current.innerHTML = '';
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'signin_with',
+          shape: 'pill',
+          logo_alignment: 'left',
+          width: responsiveWidth,
+        });
       } catch (err) {
         void err;
       }
     };
 
     if (window.google?.accounts?.id) {
-      initGis();
+      renderGisButton();
     } else {
       const interval = setInterval(() => {
         if (window.google?.accounts?.id) {
           clearInterval(interval);
-          if (isMounted) initGis();
+          if (isMounted) renderGisButton();
         }
       }, 200);
 
       return () => {
         isMounted = false;
         clearInterval(interval);
+        dismissGis();
       };
     }
 
+    const handleResize = () => {
+      if (isMounted && authMethod === 'google') {
+        renderGisButton();
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('resize', handleResize);
+      dismissGis();
     };
-  }, [isOpen, authMethod, googleClientId, isAuthenticated]);
+  }, [isOpen, authMethod, googleClientId, isAuthenticated, dismissGis]);
 
   if (!isOpen) return null;
 
@@ -267,46 +307,53 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto"
+      onClick={handleModalClose}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface-container-lowest max-w-md w-full rounded-3xl shadow-2xl p-6 sm:p-8 border border-outline-variant/60 max-h-[90vh] overflow-y-auto"
+        className="bg-surface-container-lowest max-w-md w-full rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-7 border border-outline-variant/60 max-h-[90vh] overflow-y-auto overflow-x-hidden box-border my-auto min-w-0"
       >
-        <div className="flex justify-between items-center mb-5 pb-3 border-b border-outline-variant/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">
-              <span className="material-symbols-outlined text-[22px]">
+        {/* Modal Header */}
+        <div className="flex items-start sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-outline-variant/40 min-w-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold shrink-0 shadow-sm">
+              <span className="material-symbols-outlined text-[20px] sm:text-[22px]">
                 {isAuthenticated ? 'badge' : 'lock'}
               </span>
             </div>
-            <div>
-              <h2 className="font-serif text-xl font-bold text-on-surface leading-tight">
-                {isAuthenticated ? 'Student Profile & Room Details' : 'Student Sign-In'}
+            <div className="min-w-0 flex-1">
+              <h2 className="font-serif text-lg sm:text-xl font-bold text-on-surface leading-tight truncate">
+                {isAuthenticated ? 'Student Profile & Coordinates' : 'Student Sign-In'}
               </h2>
-              <span className="text-[11px] text-on-surface-variant font-medium">
+              <p className="text-[11px] text-on-surface-variant font-medium leading-snug line-clamp-2">
                 {isAuthenticated
                   ? 'Configure your room coordinates for campus handovers'
                   : 'Sign in to access your campus marketplace, chats, and wishlists'}
-              </span>
+              </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={handleModalClose}
-            className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-colors shrink-0"
+            aria-label="Close modal"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
+        {/* Authenticated user banner OR Sign-In tab sections */}
         {isAuthenticated ? (
-          <div className="bg-secondary-fixed/40 border border-secondary-fixed rounded-2xl p-4 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold">
-                <span className="material-symbols-outlined text-[20px]">account_circle</span>
+          <div className="bg-secondary-fixed/40 border border-secondary-fixed rounded-2xl p-3.5 sm:p-4 mb-4 flex items-center justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
+                <span className="material-symbols-outlined text-[18px]">account_circle</span>
               </div>
-              <div>
-                <p className="font-bold text-sm text-on-surface">{user.fullName || user.email}</p>
-                <p className="text-xs text-on-surface-variant">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-on-surface truncate">{user.fullName || user.email}</p>
+                <p className="text-xs text-on-surface-variant truncate">
                   {user.email} • {user.role || 'STUDENT'}
                 </p>
                 <span className="inline-block mt-0.5 text-[10px] text-primary font-semibold">
@@ -317,19 +364,24 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
             <button
               type="button"
               onClick={logout}
-              className="text-xs font-bold text-primary hover:underline px-2 py-1"
+              className="text-xs font-bold text-primary hover:underline px-2 py-1 shrink-0"
             >
               Sign Out
             </button>
           </div>
         ) : (
-          <div className="bg-surface-container-low rounded-2xl p-4 mb-4 border border-outline-variant/60">
+          <div className="bg-surface-container-low rounded-2xl p-3.5 sm:p-4 mb-4 border border-outline-variant/60 min-w-0 box-border">
             {/* Auth method tabs */}
-            <div className="flex bg-surface-container rounded-xl p-1 mb-3.5 border border-outline-variant/40">
+            <div className="flex bg-surface-container rounded-xl p-1 mb-3.5 border border-outline-variant/40 min-w-0">
               <button
                 type="button"
-                onClick={() => { setAuthMethod('email'); clearError(); setLocalError(null); }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                onClick={() => {
+                  setAuthMethod('email');
+                  clearError();
+                  setLocalError(null);
+                  dismissGis();
+                }}
+                className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all text-center truncate ${
                   authMethod === 'email'
                     ? 'bg-primary text-on-primary shadow-xs'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -339,8 +391,13 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
               </button>
               <button
                 type="button"
-                onClick={() => { setAuthMethod('google'); clearError(); setLocalError(null); }}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                onClick={() => {
+                  dismissGis();
+                  setAuthMethod('google');
+                  clearError();
+                  setLocalError(null);
+                }}
+                className={`flex-1 py-1.5 px-2 text-xs font-bold rounded-lg transition-all text-center truncate ${
                   authMethod === 'google'
                     ? 'bg-primary text-on-primary shadow-xs'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -350,26 +407,35 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
               </button>
             </div>
 
+            {/* TAB 1: Google Sign-In */}
             {authMethod === 'google' ? (
-              <div className="text-center py-1">
-                <p className="text-[11px] text-on-surface-variant mb-3">
-                  Sign in with your verified campus account to buy, sell, and message peers.
+              <div className="text-center py-2 min-w-0">
+                <p className="text-[11px] text-on-surface-variant mb-3 leading-relaxed">
+                  Sign in with your verified institutional Google account (<span className="font-semibold text-on-surface">@nst.rishihood.edu.in</span> or <span className="font-semibold text-on-surface">@rishihood.edu.in</span>).
                 </p>
 
                 {isLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-3 text-primary text-xs font-bold animate-pulse">
+                  <div className="flex items-center justify-center gap-2 py-4 text-primary text-xs font-bold animate-pulse">
                     <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
                     <span>Authenticating with server...</span>
                   </div>
                 ) : googleClientId && window.google?.accounts?.id ? (
-                  <div className="flex justify-center items-center my-2">
-                    <div ref={googleBtnRef} className="min-h-[44px] flex justify-center"></div>
+                  <div
+                    ref={googleBtnContainerRef}
+                    className="w-full max-w-full flex justify-center items-center my-3 overflow-hidden box-border"
+                    style={{ minHeight: '44px' }}
+                  >
+                    <div
+                      ref={googleBtnRef}
+                      className="max-w-full flex justify-center items-center overflow-hidden box-border"
+                      style={{ minHeight: '44px' }}
+                    />
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={handleDemoSignIn}
-                    className="w-full flex items-center justify-center gap-2.5 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 py-3 px-4 rounded-full font-bold text-xs shadow-xs transition-all active:scale-95 my-1"
+                    className="w-full flex items-center justify-center gap-2.5 bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 py-2.5 px-4 rounded-full font-bold text-xs shadow-xs transition-all active:scale-95 my-2 box-border"
                   >
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -381,16 +447,33 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   </button>
                 )}
 
+                <div className="relative my-3 flex items-center justify-center">
+                  <div className="border-t border-outline-variant/40 w-full"></div>
+                  <span className="bg-surface-container-low px-2 text-[10px] uppercase tracking-wider font-bold text-on-surface-variant shrink-0">
+                    Demo Student Shortcut
+                  </span>
+                  <div className="border-t border-outline-variant/40 w-full"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDemoSignIn}
+                  className="w-full bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/50 py-2 px-3 rounded-xl font-semibold text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 box-border"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-primary">bolt</span>
+                  <span>Instant 1-Click Demo Sign-In</span>
+                </button>
+
                 {error && (
-                  <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-left">
+                  <div className="mt-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-2.5 flex items-center justify-between gap-2 text-left">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
-                      <span>{error}</span>
+                      <span className="break-words leading-tight">{error}</span>
                     </div>
                     <button
                       type="button"
                       onClick={clearError}
-                      className="text-red-500 hover:text-red-700 font-bold ml-2"
+                      className="text-red-500 hover:text-red-700 font-bold shrink-0"
                     >
                       ✕
                     </button>
@@ -398,27 +481,10 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                 )}
               </div>
             ) : (
-              <div>
-                {/* 1-Click Fast Demo Sign-In */}
-                <button
-                  type="button"
-                  onClick={handleDemoSignIn}
-                  className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 py-2.5 px-3 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5 mb-3"
-                >
-                  <span className="material-symbols-outlined text-[17px]">bolt</span>
-                  <span>Instant 1-Click Student Sign-In</span>
-                </button>
-
-                <div className="relative my-3 flex items-center justify-center">
-                  <div className="border-t border-outline-variant/40 w-full"></div>
-                  <span className="bg-surface-container-low px-2 text-[10px] uppercase tracking-wider font-bold text-on-surface-variant shrink-0">
-                    Or Enter Campus Credentials
-                  </span>
-                  <div className="border-t border-outline-variant/40 w-full"></div>
-                </div>
-
-                <div className="flex justify-between items-center mb-2.5">
-                  <span className="text-[11px] font-bold text-on-surface uppercase tracking-wider">
+              /* TAB 2: Campus Email Form (STRICTLY isolated from Google UI) */
+              <div className="min-w-0">
+                <div className="flex justify-between items-center gap-2 mb-3 min-w-0">
+                  <span className="text-[11px] font-bold text-on-surface uppercase tracking-wider truncate">
                     {emailMode === 'signin' ? 'Campus Login' : 'Student Registration'}
                   </span>
                   <button
@@ -429,15 +495,15 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                       setShowPassword(false);
                       setEmailForm((prev) => ({ ...prev, password: '', confirmPassword: '' }));
                     }}
-                    className="text-[11px] font-bold text-primary hover:underline"
+                    className="text-[11px] font-bold text-primary hover:underline shrink-0"
                   >
                     {emailMode === 'signin' ? 'Need an account? Register' : 'Have an account? Sign In'}
                   </button>
                 </div>
 
-                <form onSubmit={handleEmailAuth} className="space-y-2.5 text-xs">
+                <form onSubmit={handleEmailAuth} className="space-y-3 text-xs min-w-0">
                   {emailMode === 'register' && (
-                    <div>
+                    <div className="min-w-0">
                       <label className="block font-bold text-on-surface mb-1 text-[10px] uppercase tracking-wider">
                         Full Name *
                       </label>
@@ -448,12 +514,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                         placeholder="e.g. Your Full Name"
                         value={emailForm.fullName}
                         onChange={(e) => setEmailForm({ ...emailForm, fullName: e.target.value })}
-                        className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
+                        className="w-full box-border min-w-0 bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                       />
                     </div>
                   )}
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block font-bold text-on-surface mb-1 text-[10px] uppercase tracking-wider">
                       Campus Email *
                     </label>
@@ -464,22 +530,22 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                       placeholder="e.g. student@nst.rishihood.edu.in"
                       value={emailForm.email}
                       onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
+                      className="w-full box-border min-w-0 bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                     />
-                    <span className="text-[10px] text-on-surface-variant block mt-0.5">
+                    <span className="text-[10px] text-on-surface-variant block mt-1 leading-tight">
                       Must be @nst.rishihood.edu.in or @rishihood.edu.in
                     </span>
                   </div>
 
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block font-bold text-on-surface text-[10px] uppercase tracking-wider">
+                  <div className="min-w-0">
+                    <div className="flex justify-between items-center mb-1 gap-2 min-w-0">
+                      <label className="block font-bold text-on-surface text-[10px] uppercase tracking-wider truncate">
                         Password *
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                        className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                        className="text-[10px] text-primary hover:underline flex items-center gap-0.5 shrink-0"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {showPassword ? 'visibility_off' : 'visibility'}
@@ -495,12 +561,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                       placeholder={emailMode === 'register' ? 'Min 8 chars, 1 uppercase, 1 lowercase, 1 number' : 'Your password'}
                       value={emailForm.password}
                       onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
-                      className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
+                      className="w-full box-border min-w-0 bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                     />
                   </div>
 
                   {emailMode === 'register' && (
-                    <div>
+                    <div className="min-w-0">
                       <label className="block font-bold text-on-surface mb-1 text-[10px] uppercase tracking-wider">
                         Confirm Password *
                       </label>
@@ -511,9 +577,9 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                         placeholder="Re-enter your password"
                         value={emailForm.confirmPassword}
                         onChange={(e) => setEmailForm({ ...emailForm, confirmPassword: e.target.value })}
-                        className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
+                        className="w-full box-border min-w-0 bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2.5 focus:outline-none focus:border-primary font-medium text-xs disabled:opacity-60"
                       />
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      <div className="flex flex-wrap gap-1.5 mt-1.5 min-w-0">
                         <span
                           className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
                             emailForm.password.length >= 8
@@ -525,7 +591,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                         </span>
                         <span
                           className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
-                            /[A-Z]/.test(emailForm.password) && /[a-z]/.test(emailForm.password)
+                            /[A-Z]/.test(emailForm.password) && /[a-z]/.test(emailForm.password) && /[0-9]/.test(emailForm.password)
                               ? 'bg-green-100 text-green-800'
                               : 'bg-surface-container text-on-surface-variant'
                           }`}
@@ -550,12 +616,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   )}
 
                   {localError && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-[11px] rounded-xl p-2 flex items-center justify-between">
-                      <span>{localError}</span>
+                    <div className="bg-red-50 border border-red-200 text-red-700 text-[11px] rounded-xl p-2.5 flex items-center justify-between gap-2">
+                      <span className="break-words leading-tight flex-1 min-w-0">{localError}</span>
                       <button
                         type="button"
                         onClick={() => setLocalError(null)}
-                        className="text-red-500 font-bold ml-2"
+                        className="text-red-500 hover:text-red-700 font-bold shrink-0"
                       >
                         ✕
                       </button>
@@ -565,7 +631,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   <button
                     type="submit"
                     disabled={localSubmitting}
-                    className="w-full bg-primary hover:bg-primary-container text-on-primary py-2.5 rounded-full font-bold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5 mt-2"
+                    className="w-full bg-primary hover:bg-primary-container text-on-primary py-2.5 px-3 rounded-full font-bold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-1.5 mt-1 box-border"
                   >
                     {localSubmitting ? (
                       <>
@@ -582,18 +648,19 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
           </div>
         )}
 
-        <div className="relative my-4 flex items-center justify-center">
+        {/* Handover & Room Coordinates Section */}
+        <div className="relative my-4 flex items-center justify-center min-w-0">
           <div className="border-t border-outline-variant/40 w-full"></div>
-          <span className="bg-surface-container-lowest px-3 text-[10px] uppercase tracking-wider font-bold text-on-surface-variant shrink-0">
+          <span className="bg-surface-container-lowest px-2.5 text-[10px] uppercase tracking-wider font-bold text-on-surface-variant shrink-0">
             Handover & Room Coordinates
           </span>
           <div className="border-t border-outline-variant/40 w-full"></div>
         </div>
 
         {isAuthenticated ? (
-          <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-            <div>
-              <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
+          <form onSubmit={handleSubmit} className="space-y-3 text-xs min-w-0">
+            <div className="min-w-0">
+              <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[10px]">
                 Full Name
               </label>
               <input
@@ -601,12 +668,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                 required
                 value={formData.name}
                 onChange={(e) => setFormOverrides({ ...formOverrides, name: e.target.value })}
-                className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary font-medium"
+                className="w-full box-border min-w-0 bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
               />
             </div>
 
-            <div>
-              <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
+            <div className="min-w-0">
+              <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[10px]">
                 Email Address
               </label>
               <input
@@ -614,19 +681,19 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                 required
                 value={formData.email}
                 onChange={(e) => setFormOverrides({ ...formOverrides, email: e.target.value })}
-                className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary font-medium"
+                className="w-full box-border min-w-0 bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+              <div className="min-w-0">
+                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[10px]">
                   Hostel Corridor
                 </label>
                 <select
                   value={formData.hostel}
                   onChange={(e) => setFormOverrides({ ...formOverrides, hostel: e.target.value })}
-                  className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary font-medium"
+                  className="w-full box-border min-w-0 bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
                 >
                   <option value="Hostel 1 (North Wing)">Hostel 1 (North Wing)</option>
                   <option value="Hostel 2 (South Wing)">Hostel 2 (South Wing)</option>
@@ -637,8 +704,8 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                 </select>
               </div>
 
-              <div>
-                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
+              <div className="min-w-0">
+                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[10px]">
                   Room Number *
                 </label>
                 <input
@@ -647,14 +714,14 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   placeholder="e.g. Room 312, B-204"
                   value={formData.roomNo}
                   onChange={(e) => setFormOverrides({ ...formOverrides, roomNo: e.target.value })}
-                  className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary font-medium"
+                  className="w-full box-border min-w-0 bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0">
+              <div className="min-w-0">
+                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[10px]">
                   Student Roll / ID
                 </label>
                 <input
@@ -662,12 +729,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   placeholder="e.g. Student ID or Roll No"
                   value={formData.rollNo}
                   onChange={(e) => setFormOverrides({ ...formOverrides, rollNo: e.target.value })}
-                  className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary font-medium"
+                  className="w-full box-border min-w-0 bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
                 />
               </div>
 
-              <div>
-                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[11px]">
+              <div className="min-w-0">
+                <label className="block font-bold text-on-surface mb-1 uppercase tracking-wider text-[10px]">
                   WhatsApp / Mobile
                 </label>
                 <input
@@ -675,19 +742,19 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                   placeholder="For handover coordination"
                   value={formData.phone}
                   onChange={(e) => setFormOverrides({ ...formOverrides, phone: e.target.value })}
-                  className="w-full bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-primary font-medium"
+                  className="w-full box-border min-w-0 bg-surface-container-low border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"
                 />
               </div>
             </div>
 
-            <p className="text-[10px] text-on-surface-variant">
+            <p className="text-[10px] text-on-surface-variant leading-relaxed">
               Room and contact coordinates are stored locally in session state for handover display and are separate from your Google account.
             </p>
 
-            <div className="pt-3">
+            <div className="pt-2">
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary-container text-on-primary py-3 rounded-full font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                className="w-full bg-primary hover:bg-primary-container text-on-primary py-2.5 px-3 rounded-full font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5 box-border"
               >
                 <span className="material-symbols-outlined text-[18px]">save</span>
                 <span>Save Room Details</span>
@@ -695,12 +762,12 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
             </div>
           </form>
         ) : (
-          <div className="bg-surface-container-low rounded-2xl p-4 border border-outline-variant/60 text-center text-xs text-on-surface-variant">
+          <div className="bg-surface-container-low rounded-2xl p-3.5 sm:p-4 border border-outline-variant/60 text-center text-xs text-on-surface-variant min-w-0">
             <div className="flex items-center justify-center gap-1.5 font-bold text-on-surface mb-1">
               <span className="material-symbols-outlined text-[18px] text-primary">info</span>
               <span>Handover Coordinates</span>
             </div>
-            <p>
+            <p className="leading-relaxed">
               Please sign in above to configure your room number and handover contact details.
             </p>
           </div>
