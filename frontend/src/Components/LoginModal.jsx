@@ -312,7 +312,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span>Sign in with Google (Verified Student)</span>
+                    <span>Sign in as Verified Student</span>
                   </button>
                 )}
 
@@ -377,7 +377,7 @@ export default function LoginModal({ isOpen, onClose, currentUser, onUpdateUser,
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Ashima Bansal"
+                        placeholder="e.g. Your Full Name"
                         value={emailForm.fullName}
                         onChange={(e) => setEmailForm({ ...emailForm, fullName: e.target.value })}
                         className="w-full bg-surface-container-lowest border border-outline-variant/70 text-on-surface rounded-xl px-3 py-2 focus:outline-none focus:border-primary font-medium text-xs"

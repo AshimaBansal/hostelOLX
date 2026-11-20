@@ -42,12 +42,13 @@ export async function loginWithGoogleApi(idToken) {
   return data;
 }
 
-export async function demoLoginApi() {
+export async function demoLoginApi(userData = {}) {
   const response = await fetch(`${API_BASE_URL}/api/auth/demo`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify(userData),
   });
 
   const data = await response.json().catch(() => ({}));

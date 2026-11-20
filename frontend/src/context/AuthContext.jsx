@@ -13,8 +13,8 @@ const TOKEN_STORAGE_KEY = 'hostelolx_auth_token';
 
 const DEMO_USER = {
   id: '11111111-1111-1111-1111-111111111111',
-  fullName: 'Ashi Bansal',
-  email: 'ashi.bansal@nst.rishihood.edu.in',
+  fullName: 'Campus Student',
+  email: 'student@nst.rishihood.edu.in',
   role: 'STUDENT',
   hostel: 'Hostel 1 (North Wing)',
   roomNo: '102',
@@ -195,16 +195,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const loginDemoStudent = useCallback(async () => {
+  const loginDemoStudent = useCallback(async (customUser = {}) => {
     setIsLoading(true);
     setError(null);
 
+    const mergedDemo = {
+      ...DEMO_USER,
+      ...customUser,
+    };
+
     try {
-      const data = await demoLoginApi();
+      const data = await demoLoginApi(mergedDemo);
       if (data?.accessToken && data?.user) {
         sessionStorage.setItem(TOKEN_STORAGE_KEY, data.accessToken);
         setToken(data.accessToken);
-        setUser({ ...DEMO_USER, ...data.user });
+        setUser({ ...mergedDemo, ...data.user });
         setError(null);
         return data;
       }
@@ -216,9 +221,9 @@ export function AuthProvider({ children }) {
 
     sessionStorage.setItem(TOKEN_STORAGE_KEY, DEMO_TOKEN);
     setToken(DEMO_TOKEN);
-    setUser(DEMO_USER);
+    setUser(mergedDemo);
     setError(null);
-    return { user: DEMO_USER, accessToken: DEMO_TOKEN };
+    return { user: mergedDemo, accessToken: DEMO_TOKEN };
   }, []);
 
   const clearError = useCallback(() => {

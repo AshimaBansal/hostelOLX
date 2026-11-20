@@ -130,12 +130,15 @@ export function createAuthController(service = authService) {
     }
   }
 
-  async function demoLogin(_req, res) {
+  async function demoLogin(req, res) {
+    const { fullName, email, role } = req.body || {};
+    const studentName = fullName?.trim() || 'Campus Student';
+    const studentEmail = email?.trim() || 'student@nst.rishihood.edu.in';
     const demoUser = {
       id: '11111111-1111-1111-1111-111111111111',
-      fullName: 'Ashi Bansal',
-      email: 'ashi.bansal@nst.rishihood.edu.in',
-      role: 'STUDENT',
+      fullName: studentName,
+      email: studentEmail,
+      role: role || 'STUDENT',
     };
 
     const accessToken = service.generateAccessToken
